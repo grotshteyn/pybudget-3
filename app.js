@@ -27,6 +27,9 @@ const elements = {
   transactionsMenuButton: document.querySelector("#transactions-menu-button"),
   importView: document.querySelector("#import-view"),
   transactionsView: document.querySelector("#transactions-view"),
+  refreshAccounts: document.querySelector("#refresh-accounts"),
+  accountsList: document.querySelector("#accounts-list"),
+  accountsMessage: document.querySelector("#accounts-message"),
   csvFile: document.querySelector("#csv-file"),
   importPreview: document.querySelector("#import-preview"),
   previewAccounts: document.querySelector("#preview-accounts"),
@@ -102,6 +105,77 @@ function makeCell(text, className) {
   return cell;
 }
 
+function accountCard(account) {
+  const form = document.createElement("form");
+  form.className = "account-card";
+  const heading = document.createElement("div");
+  heading.className = "account-card-heading";
+  const identity = document.createElement("div");
+  const source = document.createElement("span");
+  source.className = "account-source";
+  source.textContent = account.source;
+  const key = document.createElement("small");
+  key.textContent = account.external_key;
+  identity.append(source, key);
+  const status = document.createElement("span");
+  status.className = `account-state ${account.is_active ? "active" : "archived"}`;
+  status.textContent = account.is_active ? "Active" : "Archived";
+  heading.append(identity, status);
+
+  const label = document.createElement("label");
+  label.textContent = "Display name";
+  const input = document.createElement("input");
+  input.name = "display_name";
+  input.maxLength = 80;
+  input.required = true;
+  input.value = account.display_name;
+
+  const actions = document.createElement("div");
+  actions.className = "account-actions";
+  const save = document.createElement("button");
+  save.className = "compact primary";
+  save.type = "submit";
+  save.textContent = "Save name";
+  const toggle = document.createElement("button");
+  toggle.className = "compact secondary";
+  toggle.type = "button";
+  toggle.textContent = account.is_active ? "Archive" : "Reactivate";
+  toggle.addEventListener("click", () => updateAccount(account.id, { is_active: !account.is_active }));
+  actions.append(save, toggle);
+  form.append(heading, label, input, actions);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    updateAccount(account.id, { display_name: input.value.trim() });
+  });
+  return form;
+}
+
+async function loadAccounts() {
+  if (!client || !currentUser) return;
+  clearMessage(elements.accountsMessage);
+  const { data, error } = await client.from("bank_accounts")
+    .select("id,source,external_key,display_name,currency,is_active,created_at,updated_at")
+    .order("is_active", { ascending: false }).order("created_at", { ascending: true });
+  if (error) {
+    elements.accountsList.replaceChildren();
+    return showMessage(elements.accountsMessage, error.message);
+  }
+  elements.accountsList.replaceChildren(...data.map(accountCard));
+  if (!data.length) showMessage(elements.accountsMessage, "No accounts detected yet. Import a bank CSV below to create them.", "success");
+}
+
+async function updateAccount(accountId, changes) {
+  if (!client || !currentUser) return;
+  if ("display_name" in changes && !changes.display_name) return showMessage(elements.accountsMessage, "Account name cannot be empty.");
+  clearMessage(elements.accountsMessage);
+  const { error } = await client.from("bank_accounts")
+    .update({ ...changes, updated_at: new Date().toISOString() }).eq("id", accountId);
+  if (error) return showMessage(elements.accountsMessage, error.message);
+  showMessage(elements.accountsMessage, "Account updated.", "success");
+  await loadAccounts();
+  await loadTransactions();
+}
+
 async function loadTransactions() {
   if (!client || !currentUser) return;
   clearMessage(elements.transactionsMessage);
@@ -149,7 +223,8 @@ function showFeature(feature) {
   elements.transactionsMenuButton.classList.toggle("active", !showImport);
   elements.importMenuButton.setAttribute("aria-current", showImport ? "page" : "false");
   elements.transactionsMenuButton.setAttribute("aria-current", showImport ? "false" : "page");
-  if (!showImport) loadTransactions();
+  if (showImport) loadAccounts();
+  else loadTransactions();
 }
 
 function renderSession(session) {
@@ -246,6 +321,7 @@ async function importTransactions() {
     "success"
   );
   await loadTransactions();
+  await loadAccounts();
 }
 
 elements.loginTab.addEventListener("click", () => setMode("login"));
@@ -254,6 +330,7 @@ elements.authForm.addEventListener("submit", handleSubmit);
 elements.resetButton.addEventListener("click", resetPassword);
 elements.importMenuButton.addEventListener("click", () => showFeature("import"));
 elements.transactionsMenuButton.addEventListener("click", () => showFeature("transactions"));
+elements.refreshAccounts.addEventListener("click", loadAccounts);
 elements.csvFile.addEventListener("change", handleFileSelection);
 elements.importButton.addEventListener("click", importTransactions);
 elements.refreshTransactions.addEventListener("click", loadTransactions);
