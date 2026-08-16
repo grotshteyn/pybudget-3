@@ -55,3 +55,6 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+# Production runs assemble both environments.
+# Update this marker when a development preview should be republished: navigation-v4
