@@ -56,6 +56,12 @@
           <span>Account</span>
           <strong id="user-email"></strong>
         </div>
+        <form id="test-field-form" class="test-field-form">
+          <label for="test-field">Private test field</label>
+          <textarea id="test-field" name="test-field" maxlength="500" rows="4" placeholder="Write something only you can access"></textarea>
+          <button id="save-field-button" class="primary" type="submit">Save to database</button>
+          <p id="data-message" class="notice" role="status" aria-live="polite" hidden></p>
+        </form>
         <button id="logout-button" class="secondary" type="button">Log out</button>
       </div>
     </section>
