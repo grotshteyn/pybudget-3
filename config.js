@@ -1,1 +1,5 @@
-// Safe browser values. Never add a secret or service_role key here.\nwindow.PYBUDGET_CONFIG = {\n  supabaseUrl: "https://eaijvzlvecezduryigoa.supabase.co",\n  supabaseAnonKey: "sb_publishable_pi2m981q9j2VGG6so5rfNA_a00oyOF-"\n};\n
+// Safe browser values. Never add a secret or service_role key here.
+window.PYBUDGET_CONFIG = {
+  supabaseUrl: "https://eaijvzlvecezduryigoa.supabase.co",
+  supabaseAnonKey: "sb_publishable_pi2m981q9j2VGG6so5rfNA_a00oyOF-"
+};
