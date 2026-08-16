@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/transaction-import
   workflow_dispatch:
 
 permissions:
@@ -58,3 +57,4 @@ jobs:
         uses: actions/deploy-pages@v4
 
 # Production runs assemble both environments.
+# Update this marker when a development preview should be republished: navigation-v1
