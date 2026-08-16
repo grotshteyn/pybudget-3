@@ -25,10 +25,15 @@ const elements = {
   resetButton: document.querySelector("#reset-button"),
   authMessage: document.querySelector("#auth-message"),
   userEmail: document.querySelector("#user-email"),
+  testFieldForm: document.querySelector("#test-field-form"),
+  testField: document.querySelector("#test-field"),
+  saveFieldButton: document.querySelector("#save-field-button"),
+  dataMessage: document.querySelector("#data-message"),
   logoutButton: document.querySelector("#logout-button")
 };
 
 let mode = "login";
+let currentUser = null;
 
 function showMessage(text, type = "error") {
   elements.authMessage.textContent = text;
@@ -58,11 +63,38 @@ function setMode(nextMode) {
   clearMessage();
 }
 
+function showDataMessage(text, type = "error") {
+  elements.dataMessage.textContent = text;
+  elements.dataMessage.className = `notice ${type}`;
+  elements.dataMessage.hidden = false;
+}
+
+async function loadTestField(user) {
+  elements.testField.value = "";
+  elements.dataMessage.hidden = true;
+
+  const { data, error } = await client
+    .from("user_test_data")
+    .select("value")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    showDataMessage(error.message);
+    return;
+  }
+
+  elements.testField.value = data?.value || "";
+}
+
 function renderSession(session) {
   const signedIn = Boolean(session?.user);
+  currentUser = session?.user || null;
   elements.authView.hidden = signedIn;
   elements.dashboardView.hidden = !signedIn;
-  elements.userEmail.textContent = session?.user?.email || "";
+  elements.userEmail.textContent = currentUser?.email || "";
+
+  if (currentUser) loadTestField(currentUser);
 }
 
 async function handleSubmit(event) {
@@ -122,6 +154,28 @@ elements.loginTab.addEventListener("click", () => setMode("login"));
 elements.signupTab.addEventListener("click", () => setMode("signup"));
 elements.authForm.addEventListener("submit", handleSubmit);
 elements.resetButton.addEventListener("click", resetPassword);
+elements.testFieldForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!client || !currentUser) return;
+
+  elements.saveFieldButton.disabled = true;
+  elements.dataMessage.hidden = true;
+
+  const { error } = await client
+    .from("user_test_data")
+    .upsert(
+      {
+        user_id: currentUser.id,
+        value: elements.testField.value,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: "user_id" }
+    );
+
+  elements.saveFieldButton.disabled = false;
+  if (error) return showDataMessage(error.message);
+  showDataMessage("Saved privately to Supabase.", "success");
+});
 elements.logoutButton.addEventListener("click", async () => {
   if (client) await client.auth.signOut();
   renderSession(null);
