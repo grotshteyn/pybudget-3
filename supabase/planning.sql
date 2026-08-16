@@ -43,7 +43,7 @@ create table public.expense_plan_occurrences (
 create index expense_plans_user_active_idx on public.expense_plans (user_id, is_active, starts_on);
 create index expense_occurrences_user_period_idx on public.expense_plan_occurrences (user_id, period_start);
 create index expense_occurrences_user_status_period_idx on public.expense_plan_occurrences (user_id, status, period_start);
-create index expense_occurrences_plan_idx on public.expense_plan_occurrences (plan_id);
+create index expense_occurrences_plan_user_idx on public.expense_plan_occurrences (plan_id, user_id);
 
 alter table public.expense_plans enable row level security;
 alter table public.expense_plan_occurrences enable row level security;
