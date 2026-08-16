@@ -83,7 +83,12 @@ async function handleSubmit(event) {
   try {
     const result = mode === "login"
       ? await client.auth.signInWithPassword(credentials)
-      : await client.auth.signUp(credentials);
+      : await client.auth.signUp({
+          ...credentials,
+          options: {
+            emailRedirectTo: `${window.location.origin}${window.location.pathname}`
+          }
+        });
 
     if (result.error) throw result.error;
 
