@@ -5,10 +5,11 @@ const $ = (selector) => document.querySelector(selector);
 const elements = Object.fromEntries([
   "setup-warning","auth-view","dashboard-view","auth-form","login-tab","signup-tab","form-title","form-subtitle","email","password","submit-button","reset-button","auth-message","user-email","logout-button",
   "import-menu-button","planning-menu-button","transactions-menu-button","import-view","planning-view","transactions-view","refresh-accounts","accounts-list","accounts-message","csv-file","import-preview","preview-accounts","preview-transactions","preview-pending","preview-errors","import-button","import-message","refresh-transactions","transactions-body","transactions-message","booked-total","pending-total","combined-total",
-  "refresh-planning","planned-expected-total","planned-realized-total","planned-count","plan-form","plan-name","plan-amount","plan-timing","plan-recurrence","plan-start","plan-end","plan-end-field","plan-frequency","plan-frequency-field","plan-interval","plan-interval-field","create-plan-button","plan-message","planning-message","plans-list","test-field-form","test-field","save-field-button","data-message"
+  "refresh-planning","planned-expected-total","planned-realized-total","plan-form","plan-name","plan-amount","plan-start","plan-end","plan-frequency","plan-frequency-field","plan-interval","plan-interval-field","create-plan-button","cancel-edit-button","plan-message","planning-message","plans-list","test-field-form","test-field","save-field-button","data-message"
 ].map((id) => [id.replaceAll("-", "_"), $(`#${id}`)]));
 
-let mode = "login", currentUser = null, parsedImport = null;
+let mode = "login", currentUser = null, parsedImport = null, editingPlanId = null;
+const planChoice = { flow: "expense", timing: "discrete", recurrence: "one_off" };
 const showMessage = (el, text, type = "error") => { el.textContent = text; el.className = `notice ${type}`; el.hidden = false; };
 const clearMessage = (el) => { el.hidden = true; el.textContent = ""; };
 const money = (cents) => new Intl.NumberFormat("en-DE", { style: "currency", currency: "EUR" }).format(Number(cents) / 100);
@@ -68,42 +69,76 @@ function generateOccurrences(plan) {
   return rows;
 }
 
-function updatePlanFields() {
-  const recurring = elements.plan_recurrence.value === "recurring", distributedOneOff = elements.plan_timing.value === "distributed" && !recurring;
-  elements.plan_frequency_field.hidden = !recurring; elements.plan_interval_field.hidden = !recurring; elements.plan_end_field.hidden = !distributedOneOff && !recurring; elements.plan_end.required = distributedOneOff;
+function setChoice(field, value) {
+  planChoice[field] = value;
+  document.querySelectorAll(`.segmented[data-field="${field}"] button`).forEach((button) => button.classList.toggle("active", button.dataset.value === value));
+  updatePlanFields();
 }
 
-async function createPlan(event) {
-  event.preventDefault(); clearMessage(elements.plan_message); const cents = Math.round(Number(elements.plan_amount.value) * 100);
-  const plan = { user_id: currentUser.id, name: elements.plan_name.value.trim(), timing_mode: elements.plan_timing.value, recurrence_mode: elements.plan_recurrence.value, planned_amount_cent: cents, currency: "EUR", starts_on: elements.plan_start.value, ends_on: elements.plan_end.value || null, frequency: elements.plan_recurrence.value === "recurring" ? elements.plan_frequency.value : null, interval_count: elements.plan_recurrence.value === "recurring" ? Number(elements.plan_interval.value) : 1 };
-  if (!plan.name || cents < 1) return showMessage(elements.plan_message, "Enter a name and a positive amount.");
-  elements.create_plan_button.disabled = true; const { data, error } = await client.from("expense_plans").insert(plan).select().single();
+function updatePlanFields() {
+  const recurring = planChoice.recurrence === "recurring";
+  elements.plan_frequency_field.hidden = !recurring;
+  elements.plan_interval_field.hidden = !recurring;
+  elements.plan_end.hidden = planChoice.timing !== "distributed" && !recurring;
+  elements.plan_end.required = planChoice.timing === "distributed" && !recurring;
+}
+
+function activateDateInput(input) { if (input.type !== "date") { input.type = "date"; input.showPicker?.(); } }
+function relaxDateInput(input) { if (!input.value) input.type = "text"; }
+function resetPlanForm() {
+  editingPlanId = null; elements.plan_form.reset(); elements.plan_start.type = "text"; elements.plan_end.type = "text";
+  setChoice("flow", "expense"); setChoice("timing", "discrete"); setChoice("recurrence", "one_off");
+  elements.create_plan_button.textContent = "Create plan"; elements.cancel_edit_button.hidden = true; clearMessage(elements.plan_message);
+}
+
+function planFromForm() {
+  const cents = Math.round(Number(elements.plan_amount.value) * 100);
+  return { user_id: currentUser.id, flow_type: planChoice.flow, name: elements.plan_name.value.trim(), timing_mode: planChoice.timing, recurrence_mode: planChoice.recurrence, planned_amount_cent: cents, currency: "EUR", starts_on: elements.plan_start.value, ends_on: elements.plan_end.value || null, frequency: planChoice.recurrence === "recurring" ? elements.plan_frequency.value : null, interval_count: planChoice.recurrence === "recurring" ? Number(elements.plan_interval.value) : 1, updated_at: new Date().toISOString() };
+}
+
+async function savePlan(event) {
+  event.preventDefault(); clearMessage(elements.plan_message); const plan = planFromForm(), wasEditing = Boolean(editingPlanId);
+  if (!plan.name || plan.planned_amount_cent < 1 || !plan.starts_on) return showMessage(elements.plan_message, "Enter a name, amount, and start date.");
+  elements.create_plan_button.disabled = true;
+  let saved, error;
+  if (editingPlanId) ({ data: saved, error } = await client.from("expense_plans").update(plan).eq("id", editingPlanId).select().single());
+  else ({ data: saved, error } = await client.from("expense_plans").insert(plan).select().single());
   if (error) { elements.create_plan_button.disabled = false; return showMessage(elements.plan_message, error.message); }
-  const occurrences = generateOccurrences(data).map((row) => ({ ...row, user_id: currentUser.id, plan_id: data.id, planned_amount_cent: cents, currency: "EUR" }));
-  const inserted = await client.from("expense_plan_occurrences").insert(occurrences); elements.create_plan_button.disabled = false;
-  if (inserted.error) { await client.from("expense_plans").delete().eq("id", data.id); return showMessage(elements.plan_message, inserted.error.message); }
-  elements.plan_form.reset(); elements.plan_start.value = iso(new Date()); updatePlanFields(); showMessage(elements.plan_message, `Plan created with ${occurrences.length} scheduled occurrence${occurrences.length === 1 ? "" : "s"}.`, "success"); await loadPlanning();
+  if (editingPlanId) await client.from("expense_plan_occurrences").delete().eq("plan_id", saved.id).eq("status", "expected");
+  const occurrences = generateOccurrences(saved).map((row) => ({ ...row, user_id: currentUser.id, plan_id: saved.id, planned_amount_cent: saved.planned_amount_cent, currency: "EUR" }));
+  const inserted = await client.from("expense_plan_occurrences").upsert(occurrences, { onConflict: "plan_id,period_start", ignoreDuplicates: true });
+  elements.create_plan_button.disabled = false;
+  if (inserted.error) { if (!editingPlanId) await client.from("expense_plans").delete().eq("id", saved.id); return showMessage(elements.plan_message, inserted.error.message); }
+  resetPlanForm(); await loadPlanning(); showMessage(elements.plan_message, wasEditing ? "Plan updated." : "Plan created.", "success");
 }
 
 async function setOccurrenceStatus(id, status) { const { error } = await client.from("expense_plan_occurrences").update({ status, realized_at: status === "realized" ? new Date().toISOString() : null, updated_at: new Date().toISOString() }).eq("id", id); if (error) return showMessage(elements.planning_message, error.message); await loadPlanning(); }
 async function togglePlan(id, active) { const { error } = await client.from("expense_plans").update({ is_active: active, updated_at: new Date().toISOString() }).eq("id", id); if (error) return showMessage(elements.planning_message, error.message); await loadPlanning(); }
+async function deletePlan(plan) { if (!confirm(`Delete “${plan.name}” and all its occurrences?`)) return; const { error } = await client.from("expense_plans").delete().eq("id", plan.id); if (error) return showMessage(elements.planning_message, error.message); if (editingPlanId === plan.id) resetPlanForm(); await loadPlanning(); }
+
+function editPlan(plan) {
+  editingPlanId = plan.id; elements.plan_name.value = plan.name; elements.plan_amount.value = (plan.planned_amount_cent / 100).toFixed(2);
+  elements.plan_start.type = "date"; elements.plan_start.value = plan.starts_on; elements.plan_end.type = plan.ends_on ? "date" : "text"; elements.plan_end.value = plan.ends_on || "";
+  elements.plan_frequency.value = plan.frequency || "monthly"; elements.plan_interval.value = plan.interval_count;
+  setChoice("flow", plan.flow_type); setChoice("timing", plan.timing_mode); setChoice("recurrence", plan.recurrence_mode);
+  elements.create_plan_button.textContent = "Save changes"; elements.cancel_edit_button.hidden = false; elements.plan_form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 function planCard(plan) {
-  const section = document.createElement("article"); section.className = `plan-card ${plan.is_active ? "" : "inactive"}`;
-  const timing = plan.timing_mode === "discrete" ? "Single expense" : "Spending budget", recurrence = plan.recurrence_mode === "one_off" ? "One-off" : `Every ${plan.interval_count > 1 ? `${plan.interval_count} ` : ""}${plan.frequency}`;
-  section.innerHTML = `<div class="plan-heading"><div><h3></h3><p class="plan-meta"></p></div><button class="compact secondary" type="button"></button></div><div class="occurrence-list"></div>`;
-  section.querySelector("h3").textContent = plan.name; section.querySelector(".plan-meta").textContent = `${timing} · ${recurrence} · ${money(plan.planned_amount_cent)}`;
-  const toggle = section.querySelector("button"); toggle.textContent = plan.is_active ? "Pause" : "Reactivate"; toggle.addEventListener("click", () => togglePlan(plan.id, !plan.is_active));
-  const list = section.querySelector(".occurrence-list");
-  plan.expense_plan_occurrences.forEach((o) => { const row = document.createElement("div"); row.className = "occurrence-row"; const range = o.period_start === o.period_end ? displayDate(o.period_start) : `${displayDate(o.period_start)} – ${displayDate(o.period_end)}`; row.innerHTML = `<div><strong></strong><span></span></div><div class="status-actions"></div>`; row.querySelector("strong").textContent = money(o.planned_amount_cent); row.querySelector("span").textContent = range; ["expected","realized","cancelled"].forEach((status) => { const button = document.createElement("button"); button.type = "button"; button.className = `status-choice ${status === o.status ? "active" : ""}`; button.textContent = status[0].toUpperCase() + status.slice(1); button.addEventListener("click", () => setOccurrenceStatus(o.id, status)); row.querySelector(".status-actions").append(button); }); list.append(row); });
-  return section;
+  const details = document.createElement("details"); details.className = `plan-card ${plan.is_active ? "" : "inactive"}`;
+  const timing = plan.timing_mode === "discrete" ? "Single" : "Continuous", recurrence = plan.recurrence_mode === "one_off" ? "One-off" : `${plan.interval_count > 1 ? `Every ${plan.interval_count} ` : ""}${plan.frequency}`;
+  details.innerHTML = `<summary><span class="plan-kind"></span><span class="plan-name"></span><strong class="plan-amount"></strong><span class="chevron">⌄</span></summary><div class="plan-details"><p class="plan-meta"></p><div class="plan-actions"><button class="compact secondary edit-plan" type="button">Edit</button><button class="compact secondary toggle-plan" type="button"></button><button class="compact danger delete-plan" type="button">Delete</button></div><div class="occurrence-list"></div></div>`;
+  details.querySelector(".plan-kind").textContent = plan.flow_type === "income" ? "Income" : "Expense"; details.querySelector(".plan-name").textContent = plan.name; details.querySelector(".plan-amount").textContent = money(plan.planned_amount_cent); details.querySelector(".plan-meta").textContent = `${timing} · ${recurrence} · from ${displayDate(plan.starts_on)}`;
+  details.querySelector(".edit-plan").onclick = () => editPlan(plan); const toggle = details.querySelector(".toggle-plan"); toggle.textContent = plan.is_active ? "Pause" : "Reactivate"; toggle.onclick = () => togglePlan(plan.id, !plan.is_active); details.querySelector(".delete-plan").onclick = () => deletePlan(plan);
+  const list = details.querySelector(".occurrence-list");
+  plan.expense_plan_occurrences.forEach((o) => { const row = document.createElement("div"); row.className = "occurrence-row"; const range = o.period_start === o.period_end ? displayDate(o.period_start) : `${displayDate(o.period_start)} – ${displayDate(o.period_end)}`; row.innerHTML = `<div><strong></strong><span></span></div><div class="status-actions"></div>`; row.querySelector("strong").textContent = money(o.planned_amount_cent); row.querySelector("span").textContent = range; ["expected","realized","cancelled"].forEach((status) => { const button = document.createElement("button"); button.type = "button"; button.className = `status-choice ${status === o.status ? "active" : ""}`; button.textContent = status[0].toUpperCase() + status.slice(1); button.onclick = () => setOccurrenceStatus(o.id, status); row.querySelector(".status-actions").append(button); }); list.append(row); }); return details;
 }
 
 async function loadPlanning() {
   clearMessage(elements.planning_message); const { data, error } = await client.from("expense_plans").select("*,expense_plan_occurrences(*)").order("created_at", { ascending: false });
-  if (error) return showMessage(elements.planning_message, error.message); let expected = 0, realized = 0, count = 0;
-  data.forEach((plan) => { plan.expense_plan_occurrences.sort((a,b) => a.period_start.localeCompare(b.period_start)); plan.expense_plan_occurrences.forEach((o) => { if (o.status === "expected" && plan.is_active) { expected += Number(o.planned_amount_cent); count++; } if (o.status === "realized") realized += Number(o.planned_amount_cent); }); });
-  elements.planned_expected_total.textContent = money(expected); elements.planned_realized_total.textContent = money(realized); elements.planned_count.textContent = count; elements.plans_list.replaceChildren(...data.map(planCard)); if (!data.length) showMessage(elements.planning_message, "No plans yet. Create your first one above.", "success");
+  if (error) return showMessage(elements.planning_message, error.message); let expected = 0, realized = 0;
+  data.forEach((plan) => { const sign = plan.flow_type === "income" ? 1 : -1; plan.expense_plan_occurrences.sort((a,b) => a.period_start.localeCompare(b.period_start)); plan.expense_plan_occurrences.forEach((o) => { if (o.status === "expected" && plan.is_active) expected += sign * Number(o.planned_amount_cent); if (o.status === "realized") realized += sign * Number(o.planned_amount_cent); }); });
+  elements.planned_expected_total.textContent = money(expected); elements.planned_realized_total.textContent = money(realized); elements.plans_list.replaceChildren(...data.map(planCard)); if (!data.length) showMessage(elements.planning_message, "No plans yet.", "success");
 }
 
 function showFeature(feature) { ["import","planning","transactions"].forEach((name) => { elements[`${name}_view`].hidden = name !== feature; elements[`${name}_menu_button`].classList.toggle("active", name === feature); }); if (feature === "import") loadAccounts(); if (feature === "planning") loadPlanning(); if (feature === "transactions") loadTransactions(); }
@@ -114,6 +149,8 @@ async function importTransactions() { elements.import_button.disabled = true; co
 
 elements.login_tab.onclick = () => setMode("login"); elements.signup_tab.onclick = () => setMode("signup"); elements.auth_form.onsubmit = handleAuth;
 elements.reset_button.onclick = async () => { const { error } = await client.auth.resetPasswordForEmail(elements.email.value.trim(), { redirectTo: `${location.origin}${location.pathname}` }); showMessage(elements.auth_message, error ? error.message : "Password reset email sent.", error ? "error" : "success"); };
-elements.logout_button.onclick = () => client.auth.signOut(); elements.import_menu_button.onclick = () => showFeature("import"); elements.planning_menu_button.onclick = () => showFeature("planning"); elements.transactions_menu_button.onclick = () => showFeature("transactions"); elements.refresh_accounts.onclick = loadAccounts; elements.refresh_transactions.onclick = loadTransactions; elements.refresh_planning.onclick = loadPlanning; elements.csv_file.onchange = handleFile; elements.import_button.onclick = importTransactions; elements.plan_form.onsubmit = createPlan; elements.plan_timing.onchange = updatePlanFields; elements.plan_recurrence.onchange = updatePlanFields;
-elements.plan_start.value = iso(new Date()); updatePlanFields();
+elements.logout_button.onclick = () => client.auth.signOut(); elements.import_menu_button.onclick = () => showFeature("import"); elements.planning_menu_button.onclick = () => showFeature("planning"); elements.transactions_menu_button.onclick = () => showFeature("transactions"); elements.refresh_accounts.onclick = loadAccounts; elements.refresh_transactions.onclick = loadTransactions; elements.refresh_planning.onclick = loadPlanning; elements.csv_file.onchange = handleFile; elements.import_button.onclick = importTransactions; elements.plan_form.onsubmit = savePlan; elements.cancel_edit_button.onclick = resetPlanForm;
+document.querySelectorAll(".segmented button").forEach((button) => button.onclick = () => setChoice(button.closest(".segmented").dataset.field, button.dataset.value));
+[elements.plan_start, elements.plan_end].forEach((input) => { input.addEventListener("focus", () => activateDateInput(input)); input.addEventListener("blur", () => relaxDateInput(input)); });
+updatePlanFields();
 if (!configured) { elements.setup_warning.hidden = false; renderSession(null); } else { client.auth.getSession().then(({ data }) => renderSession(data.session)); client.auth.onAuthStateChange((_event, session) => renderSession(session)); }
