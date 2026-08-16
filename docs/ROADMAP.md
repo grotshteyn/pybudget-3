@@ -141,6 +141,12 @@ Preserve the useful concepts from the previous PyBudget overview after categorie
 
 ## Phase 5: Budget planning
 
+The detailed planned-expense specification is `docs/PLANNED_EXPENSES_FEATURE_PLAN.md`.
+
+- [ ] Four plan types across discrete/distributed timing and one-off/recurring schedules.
+- [ ] Separate reusable plan definitions and dated occurrences.
+- [ ] Expected, partially realized, realized, and cancelled occurrence states.
+- [ ] Manual transaction allocations that prevent forecast double counting.
 - [ ] Monthly category budgets.
 - [ ] One-time and recurring plans.
 - [ ] Fixed-date and full-period schedules.
