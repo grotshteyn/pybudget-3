@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="PyBudget authentication prototype">
+  <meta name="description" content="PyBudget authentication and bank transaction import">
   <title>PyBudget</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=4">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -13,61 +13,111 @@
     <section class="brand-panel" aria-labelledby="brand-title">
       <p class="eyebrow">Your money, made clearer</p>
       <h1 id="brand-title">PyBudget</h1>
-      <p class="brand-copy">A calm place for your future budget. For now, start with a secure account.</p>
+      <p class="brand-copy">See what is really available, including money already reserved by pending transactions.</p>
       <div class="preview-card" aria-hidden="true">
-        <span>Monthly overview</span>
-        <strong>Coming soon</strong>
+        <span>Available after pending</span>
+        <strong>Honest by design</strong>
         <div class="preview-bars"><i></i><i></i><i></i><i></i></div>
       </div>
     </section>
 
     <section class="auth-panel">
       <div id="setup-warning" class="notice warning" hidden>
-        Add your Supabase URL and anon key to <code>config.js</code> before using authentication.
+        Add your Supabase URL and publishable key to <code>config.js</code>.
       </div>
 
-      <div id="auth-view" class="card">
+      <div id="auth-view" class="card auth-card">
         <div class="tabs" role="tablist" aria-label="Authentication">
           <button id="login-tab" class="tab active" type="button" role="tab" aria-selected="true">Log in</button>
           <button id="signup-tab" class="tab" type="button" role="tab" aria-selected="false">Create account</button>
         </div>
-
         <form id="auth-form">
           <h2 id="form-title">Welcome back</h2>
           <p id="form-subtitle" class="muted">Log in to continue to PyBudget.</p>
-
           <label for="email">Email</label>
           <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
-
           <label for="password">Password</label>
           <input id="password" name="password" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters" required>
-
           <button id="submit-button" class="primary" type="submit">Log in</button>
           <button id="reset-button" class="text-button" type="button">Forgot your password?</button>
           <p id="auth-message" class="notice" role="status" aria-live="polite" hidden></p>
         </form>
       </div>
 
-      <div id="dashboard-view" class="card dashboard" hidden>
-        <p class="eyebrow">Signed in</p>
-        <h2>Welcome to PyBudget</h2>
-        <p class="muted">Your private budgeting dashboard will live here.</p>
-        <div class="account-row">
-          <span>Account</span>
-          <strong id="user-email"></strong>
-        </div>
-        <form id="test-field-form" class="test-field-form">
-          <label for="test-field">Private test field</label>
-          <textarea id="test-field" name="test-field" maxlength="500" rows="4" placeholder="Write something only you can access"></textarea>
-          <button id="save-field-button" class="primary" type="submit">Save to database</button>
-          <p id="data-message" class="notice" role="status" aria-live="polite" hidden></p>
-        </form>
-        <button id="logout-button" class="secondary" type="button">Log out</button>
+      <div id="dashboard-view" class="dashboard-stack" hidden>
+        <section class="card dashboard">
+          <div class="dashboard-heading">
+            <div>
+              <p class="eyebrow">Signed in</p>
+              <h2>Welcome to PyBudget</h2>
+            </div>
+            <button id="logout-button" class="compact secondary top-logout-button" type="button">Log out</button>
+          </div>
+          <div class="account-row">
+            <span>Account</span>
+            <strong id="user-email"></strong>
+          </div>
+          <nav class="app-menu" aria-label="PyBudget sections">
+            <button id="import-menu-button" class="menu-button active" type="button">Import</button>
+            <button id="transactions-menu-button" class="menu-button" type="button">All transactions</button>
+          </nav>
+        </section>
+
+        <section id="import-view" class="card feature-view">
+          <p class="eyebrow green">Import</p>
+          <h2>Bank transactions</h2>
+          <p class="muted">Select a Comdirect CSV. The file is parsed in your browser; only normalized transactions are sent to your private database.</p>
+          <label class="file-picker" for="csv-file">
+            <span>Choose Comdirect CSV</span>
+            <input id="csv-file" type="file" accept=".csv,text/csv">
+          </label>
+          <div id="import-preview" class="import-preview" hidden>
+            <div><span>Accounts</span><strong id="preview-accounts">0</strong></div>
+            <div><span>Transactions</span><strong id="preview-transactions">0</strong></div>
+            <div><span>Pending</span><strong id="preview-pending">0</strong></div>
+            <div><span>Rejected rows</span><strong id="preview-errors">0</strong></div>
+          </div>
+          <button id="import-button" class="primary" type="button" disabled>Import transactions</button>
+          <p id="import-message" class="notice" role="status" aria-live="polite" hidden></p>
+        </section>
+
+        <section id="transactions-view" class="card transactions-card feature-view" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow green">Ledger</p>
+              <h2>Recent transactions</h2>
+            </div>
+            <button id="refresh-transactions" class="compact secondary" type="button">Refresh</button>
+          </div>
+          <div class="ledger-totals">
+            <div><span>Booked</span><strong id="booked-total">€0.00</strong></div>
+            <div><span>Pending</span><strong id="pending-total">€0.00</strong></div>
+            <div><span>Net including pending</span><strong id="combined-total">€0.00</strong></div>
+          </div>
+          <p id="transactions-message" class="notice" role="status" hidden></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Partner</th><th>Account</th><th>Status</th><th class="amount">Amount</th></tr></thead>
+              <tbody id="transactions-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card" hidden>
+          <p class="eyebrow green">Storage test</p>
+          <form id="test-field-form" class="test-field-form">
+            <label for="test-field">Private test field</label>
+            <textarea id="test-field" name="test-field" maxlength="500" rows="3" placeholder="Write something only you can access"></textarea>
+            <button id="save-field-button" class="primary" type="submit">Save test value</button>
+            <p id="data-message" class="notice" role="status" aria-live="polite" hidden></p>
+          </form>
+        </section>
       </div>
     </section>
   </main>
 
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script src="config.js?v=4"></script>
+  <script src="importer.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
