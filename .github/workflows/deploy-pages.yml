@@ -32,7 +32,7 @@ jobs:
       - name: Check out development preview
         uses: actions/checkout@v4
         with:
-          ref: feature/transaction-import
+          ref: feature/account-management
           path: preview
 
       - name: Add development preview
@@ -57,4 +57,4 @@ jobs:
         uses: actions/deploy-pages@v4
 
 # Production runs assemble both environments.
-# Update this marker when a development preview should be republished: navigation-v4
+# Update this marker when a development preview should be republished: accounts-v1
