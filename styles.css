@@ -260,3 +260,38 @@ body.signed-in .table-wrap { max-width: 100%; }
   body.signed-in .menu-button { padding-inline: 7px; font-size: .76rem; }
   body.signed-in .section-heading { align-items: flex-start; }
 }
+
+
+/* Minimal authentication screen */
+body:not(.signed-in) .brand-panel { display: none; }
+body:not(.signed-in) .shell { display: block; }
+body:not(.signed-in) .auth-panel {
+  min-height: 100vh;
+  padding: 20px;
+  align-items: center;
+  justify-content: center;
+}
+body:not(.signed-in) .auth-card { width: min(430px, 100%); }
+
+/* Account actions belong in the top bar */
+body.signed-in .top-logout-button {
+  flex: 0 0 auto;
+  color: var(--error);
+  border-color: #ead4d1;
+  background: #fffafa;
+}
+body.signed-in .app-menu { grid-template-columns: 1fr 1fr; }
+body.signed-in .logout-menu-button { display: none; }
+
+@media (max-width: 760px) {
+  body.signed-in .dashboard-heading {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  body.signed-in .top-logout-button {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+  body.signed-in .app-menu { grid-template-columns: 1fr 1fr; }
+}
