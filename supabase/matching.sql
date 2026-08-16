@@ -58,8 +58,9 @@ create table if not exists public.transaction_plan_matches (
 
 create index if not exists matching_rules_user_enabled_idx on public.matching_rules (user_id, enabled, priority);
 create index if not exists matching_rules_plan_user_idx on public.matching_rules (plan_id, user_id);
-create index if not exists matching_rules_account_idx on public.matching_rules (account_id) where account_id is not null;
+create index if not exists matching_rules_account_user_idx on public.matching_rules (account_id, user_id) where account_id is not null;
 create index if not exists transaction_matches_user_idx on public.transaction_plan_matches (user_id, transaction_id);
+create index if not exists transaction_matches_transaction_user_idx on public.transaction_plan_matches (transaction_id, user_id);
 create index if not exists transaction_matches_occurrence_user_idx on public.transaction_plan_matches (occurrence_id, user_id);
 create index if not exists transaction_matches_rule_user_idx on public.transaction_plan_matches (rule_id, user_id) where rule_id is not null;
 
