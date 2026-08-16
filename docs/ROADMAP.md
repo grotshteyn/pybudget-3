@@ -31,6 +31,16 @@ Add a separately deployed FastAPI service only when Python-specific parsers, sec
 7. Import provenance is retained privately.
 8. Prefer the simplest architecture that meets current requirements.
 
+## Planned application navigation
+
+Keep the primary navigation small:
+
+- **Overview**: answers how much money is really available and what is about to happen.
+- **Transactions**: complete searchable ledger.
+- **Setup**: bank accounts, CSV import, import history, account settings, password actions, and logout.
+
+Until Overview is implemented, the application may expose only Transactions and Setup. Account does not need a separate primary menu entry while its actions fit clearly inside Setup.
+
 ## Phase 0: Foundation
 
 Status: implemented.
@@ -74,7 +84,39 @@ The detailed specification is `docs/CURRENT_FEATURE_PLAN.md`.
 - [ ] Import-history screen.
 - [ ] Reconciliation review for ambiguous cases.
 
-## Phase 3: Accounts and balances
+## Phase 3: Accounts, balances, and Overview
+
+### Overview first version
+
+The first Overview should be phone-first and should not duplicate the complete transaction ledger.
+
+- [ ] Real available money as the primary figure.
+- [ ] Latest booked balance.
+- [ ] Pending transaction total.
+- [ ] Available balance after pending.
+- [ ] Per-account cards with latest balance, pending amount, and last update date.
+- [ ] Five most recent transactions with clear pending indicators.
+- [ ] Link from recent activity to the complete transaction ledger.
+- [ ] Last successful import and imported-row count.
+- [ ] Stale-data warning when an account has not been updated recently.
+
+### Later budgeting expansion
+
+Preserve the useful concepts from the previous PyBudget overview after categories and planning exist:
+
+- [ ] Year and month selector.
+- [ ] Current balance.
+- [ ] Spending still expected.
+- [ ] Income still expected.
+- [ ] Projected balance.
+- [ ] Category actual-versus-planned progress.
+- [ ] Month-progress marker on category budgets.
+- [ ] Over-budget warning state.
+- [ ] Planned and actual transaction sections.
+- [ ] Category drill-down.
+- [ ] Year-to-date actual and projected figures.
+
+### Accounts and balances
 
 - [ ] Multiple current accounts, cards, savings accounts, and cash accounts.
 - [ ] Persistent bank identifiers.
