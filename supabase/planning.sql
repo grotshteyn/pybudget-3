@@ -2,6 +2,7 @@ create table public.expense_plans (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null check (char_length(trim(name)) between 1 and 120),
+  flow_type text not null default 'expense' check (flow_type in ('expense', 'income')),
   timing_mode text not null check (timing_mode in ('discrete', 'distributed')),
   recurrence_mode text not null check (recurrence_mode in ('one_off', 'recurring')),
   planned_amount_cent bigint not null check (planned_amount_cent > 0),
