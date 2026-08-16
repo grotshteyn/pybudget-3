@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/transaction-import
   workflow_dispatch:
 
 permissions:
