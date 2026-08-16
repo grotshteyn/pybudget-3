@@ -93,6 +93,12 @@ drop policy if exists "Users read own bank accounts" on public.bank_accounts;
 create policy "Users read own bank accounts" on public.bank_accounts
   for select to authenticated using ((select auth.uid()) = user_id);
 
+drop policy if exists "Users update own bank accounts" on public.bank_accounts;
+create policy "Users update own bank accounts" on public.bank_accounts
+  for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
 drop policy if exists "Users read own import batches" on public.import_batches;
 create policy "Users read own import batches" on public.import_batches
   for select to authenticated using ((select auth.uid()) = user_id);
@@ -110,6 +116,7 @@ revoke all on public.import_batches from anon, authenticated;
 revoke all on public.transactions from anon, authenticated;
 revoke all on public.transaction_observations from anon, authenticated;
 grant select on public.bank_accounts to authenticated;
+grant update (display_name, is_active, updated_at) on public.bank_accounts to authenticated;
 grant select on public.import_batches to authenticated;
 grant select on public.transactions to authenticated;
 grant select on public.transaction_observations to authenticated;
@@ -199,7 +206,6 @@ begin
     )
     on conflict (user_id, source, external_key)
     do update set
-      display_name = excluded.display_name,
       updated_at = now()
     returning id into v_account_id;
 
