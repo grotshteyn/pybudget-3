@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="PyBudget authentication and bank transaction import">
   <title>PyBudget</title>
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -58,12 +58,22 @@
             <strong id="user-email"></strong>
           </div>
           <nav class="app-menu" aria-label="PyBudget sections">
-            <button id="import-menu-button" class="menu-button active" type="button">Import</button>
+            <button id="import-menu-button" class="menu-button active" type="button">Setup</button>
             <button id="transactions-menu-button" class="menu-button" type="button">All transactions</button>
           </nav>
         </section>
 
-        <section id="import-view" class="card feature-view">
+        <section id="import-view" class="setup-stack feature-view">
+          <section class="card">
+            <div class="section-heading">
+              <div><p class="eyebrow green">Accounts</p><h2>Detected bank accounts</h2></div>
+              <button id="refresh-accounts" class="compact secondary" type="button">Refresh</button>
+            </div>
+            <p class="muted">Accounts are created automatically when they are found in an import. You can rename or archive them here.</p>
+            <p id="accounts-message" class="notice" role="status" aria-live="polite" hidden></p>
+            <div id="accounts-list" class="accounts-list"></div>
+          </section>
+          <section class="card">
           <p class="eyebrow green">Import</p>
           <h2>Bank transactions</h2>
           <p class="muted">Select a Comdirect CSV. The file is parsed in your browser; only normalized transactions are sent to your private database.</p>
@@ -79,6 +89,7 @@
           </div>
           <button id="import-button" class="primary" type="button" disabled>Import transactions</button>
           <p id="import-message" class="notice" role="status" aria-live="polite" hidden></p>
+          </section>
         </section>
 
         <section id="transactions-view" class="card transactions-card feature-view" hidden>
@@ -116,8 +127,8 @@
     </section>
   </main>
 
-  <script src="config.js?v=4"></script>
-  <script src="importer.js?v=4"></script>
-  <script src="app.js?v=4"></script>
+  <script src="config.js?v=5"></script>
+  <script src="importer.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
