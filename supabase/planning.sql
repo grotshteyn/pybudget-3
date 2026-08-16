@@ -68,5 +68,7 @@ create policy "Users delete their expense occurrences" on public.expense_plan_oc
 
 revoke all on public.expense_plans from anon, public;
 revoke all on public.expense_plan_occurrences from anon, public;
+revoke all on public.expense_plans from authenticated;
+revoke all on public.expense_plan_occurrences from authenticated;
 grant select, insert, update, delete on public.expense_plans to authenticated;
 grant select, insert, update, delete on public.expense_plan_occurrences to authenticated;
