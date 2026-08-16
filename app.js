@@ -64,7 +64,7 @@ function dayBefore(date) { const result = new Date(date); result.setUTCDate(resu
 function generateOccurrences(plan) {
   const start = parseDate(plan.starts_on), end = plan.ends_on ? parseDate(plan.ends_on) : null;
   if (plan.recurrence_mode === "one_off") return [{ period_start: plan.starts_on, period_end: plan.timing_mode === "distributed" ? plan.ends_on : plan.starts_on, expected_on: plan.timing_mode === "discrete" ? plan.starts_on : null }];
-  const horizon = new Date(); horizon.setUTCMonth(horizon.getUTCMonth() + 18); const limit = end && end < horizon ? end : horizon; const rows = []; let cursor = start;
+  const horizon = new Date(start); horizon.setUTCMonth(horizon.getUTCMonth() + 18); const limit = end && end < horizon ? end : horizon; const rows = []; let cursor = start;
   while (cursor <= limit && rows.length < 250) { const next = addPeriod(cursor, plan.frequency, plan.interval_count); rows.push({ period_start: iso(cursor), period_end: plan.timing_mode === "distributed" ? iso(end && dayBefore(next) > end ? end : dayBefore(next)) : iso(cursor), expected_on: plan.timing_mode === "discrete" ? iso(cursor) : null }); cursor = next; }
   return rows;
 }
