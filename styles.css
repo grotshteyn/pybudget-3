@@ -296,3 +296,22 @@ body.signed-in .logout-menu-button { display: none; }
   }
   body.signed-in .app-menu { grid-template-columns: 1fr 1fr; }
 }
+
+
+/* Account management */
+.setup-stack { display: grid; gap: 18px; width: 100%; }
+.accounts-list { display: grid; gap: 12px; margin-top: 18px; }
+.account-card { padding: 16px; border: 1px solid var(--line); border-radius: 13px; background: white; }
+.account-card-heading, .account-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.account-card-heading small { display: block; max-width: 520px; margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
+.account-source { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--green); }
+.account-state { padding: 4px 8px; border-radius: 999px; font-size: .72rem; font-weight: 750; }
+.account-state.active { color: var(--success); background: #e7f2e9; }
+.account-state.archived { color: var(--muted); background: #ecebe5; }
+.account-actions { justify-content: flex-start; margin-top: 12px; }
+.account-actions .primary { width: auto; margin: 0; }
+@media (max-width: 560px) {
+  .account-card-heading { align-items: flex-start; }
+  .account-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .account-actions button { width: 100%; }
+}
