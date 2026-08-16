@@ -57,5 +57,4 @@ jobs:
         uses: actions/deploy-pages@v4
 
 # Production runs assemble both environments.
-# Update this marker when a development preview should be republished: planning-v1
-\n# Preview marker: planning-v3\n
+# Update this marker when a development preview should be republished: planning-v3
