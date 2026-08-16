@@ -155,6 +155,7 @@ function showFeature(feature) {
 function renderSession(session) {
   const signedIn = Boolean(session?.user);
   currentUser = session?.user || null;
+  document.body.classList.toggle("signed-in", signedIn);
   elements.authView.hidden = signedIn;
   elements.dashboardView.hidden = !signedIn;
   elements.userEmail.textContent = currentUser?.email || "";
