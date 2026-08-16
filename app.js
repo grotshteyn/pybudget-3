@@ -23,6 +23,10 @@ const elements = {
   authMessage: document.querySelector("#auth-message"),
   userEmail: document.querySelector("#user-email"),
   logoutButton: document.querySelector("#logout-button"),
+  importMenuButton: document.querySelector("#import-menu-button"),
+  transactionsMenuButton: document.querySelector("#transactions-menu-button"),
+  importView: document.querySelector("#import-view"),
+  transactionsView: document.querySelector("#transactions-view"),
   csvFile: document.querySelector("#csv-file"),
   importPreview: document.querySelector("#import-preview"),
   previewAccounts: document.querySelector("#preview-accounts"),
@@ -137,6 +141,17 @@ async function loadTransactions() {
   if (!data.length) showMessage(elements.transactionsMessage, "No imported transactions yet.", "success");
 }
 
+function showFeature(feature) {
+  const showImport = feature === "import";
+  elements.importView.hidden = !showImport;
+  elements.transactionsView.hidden = showImport;
+  elements.importMenuButton.classList.toggle("active", showImport);
+  elements.transactionsMenuButton.classList.toggle("active", !showImport);
+  elements.importMenuButton.setAttribute("aria-current", showImport ? "page" : "false");
+  elements.transactionsMenuButton.setAttribute("aria-current", showImport ? "false" : "page");
+  if (!showImport) loadTransactions();
+}
+
 function renderSession(session) {
   const signedIn = Boolean(session?.user);
   currentUser = session?.user || null;
@@ -145,7 +160,7 @@ function renderSession(session) {
   elements.userEmail.textContent = currentUser?.email || "";
   if (currentUser) {
     loadTestField(currentUser);
-    loadTransactions();
+    showFeature("import");
   }
 }
 
@@ -236,6 +251,8 @@ elements.loginTab.addEventListener("click", () => setMode("login"));
 elements.signupTab.addEventListener("click", () => setMode("signup"));
 elements.authForm.addEventListener("submit", handleSubmit);
 elements.resetButton.addEventListener("click", resetPassword);
+elements.importMenuButton.addEventListener("click", () => showFeature("import"));
+elements.transactionsMenuButton.addEventListener("click", () => showFeature("transactions"));
 elements.csvFile.addEventListener("change", handleFileSelection);
 elements.importButton.addEventListener("click", importTransactions);
 elements.refreshTransactions.addEventListener("click", loadTransactions);
