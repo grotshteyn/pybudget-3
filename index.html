@@ -51,15 +51,19 @@
               <p class="eyebrow">Signed in</p>
               <h2>Welcome to PyBudget</h2>
             </div>
-            <button id="logout-button" class="compact secondary" type="button">Log out</button>
           </div>
           <div class="account-row">
             <span>Account</span>
             <strong id="user-email"></strong>
           </div>
+          <nav class="app-menu" aria-label="PyBudget sections">
+            <button id="import-menu-button" class="menu-button active" type="button">Import</button>
+            <button id="transactions-menu-button" class="menu-button" type="button">All transactions</button>
+            <button id="logout-button" class="menu-button logout-menu-button" type="button">Log out</button>
+          </nav>
         </section>
 
-        <section class="card">
+        <section id="import-view" class="card feature-view">
           <p class="eyebrow green">Import</p>
           <h2>Bank transactions</h2>
           <p class="muted">Select a Comdirect CSV. The file is parsed in your browser; only normalized transactions are sent to your private database.</p>
@@ -77,7 +81,7 @@
           <p id="import-message" class="notice" role="status" aria-live="polite" hidden></p>
         </section>
 
-        <section class="card transactions-card">
+        <section id="transactions-view" class="card transactions-card feature-view" hidden>
           <div class="section-heading">
             <div>
               <p class="eyebrow green">Ledger</p>
@@ -99,7 +103,7 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" hidden>
           <p class="eyebrow green">Storage test</p>
           <form id="test-field-form" class="test-field-form">
             <label for="test-field">Private test field</label>
