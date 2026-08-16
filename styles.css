@@ -105,3 +105,158 @@ th, td { padding: 11px 8px; border-bottom: 1px solid var(--line); vertical-align
   .app-menu { grid-template-columns: 1fr 1fr; }
   .logout-menu-button { grid-column: 1 / -1; }
 }
+
+
+/* Authenticated application shell */
+body.signed-in { background: #f5f6f3; }
+body.signed-in .shell { display: block; min-height: 100vh; }
+body.signed-in .brand-panel { display: none; }
+body.signed-in .auth-panel {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 24px;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+body.signed-in .dashboard-stack { width: 100%; gap: 22px; }
+body.signed-in .dashboard {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 22px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(37,48,41,.06);
+}
+body.signed-in .dashboard-heading h2 { margin-bottom: 0; font-size: 1.45rem; }
+body.signed-in .account-row {
+  display: block;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  font-size: .82rem;
+}
+body.signed-in .account-row span { display: none; }
+body.signed-in .account-row strong { font-weight: 500; }
+body.signed-in .app-menu {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: 6px;
+}
+body.signed-in .menu-button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border-color: transparent;
+  white-space: nowrap;
+}
+body.signed-in .menu-button.active {
+  color: white;
+  background: var(--green);
+  border-color: var(--green);
+}
+body.signed-in .logout-menu-button {
+  margin-left: 8px;
+  color: var(--error);
+  border-color: #ead4d1;
+  background: #fffafa;
+}
+body.signed-in .feature-view {
+  width: 100%;
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(37,48,41,.06);
+}
+body.signed-in .transactions-card { min-width: 0; }
+body.signed-in .table-wrap { max-width: 100%; }
+
+@media (max-width: 760px) {
+  body.signed-in .auth-panel { padding: 12px 10px 92px; }
+  body.signed-in .dashboard-stack { gap: 12px; }
+  body.signed-in .dashboard {
+    display: block;
+    padding: 18px;
+    border-radius: 14px;
+  }
+  body.signed-in .dashboard-heading { display: block; }
+  body.signed-in .app-menu {
+    position: fixed;
+    z-index: 20;
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 5px;
+    padding: 7px;
+    background: rgba(255,253,248,.96);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 12px 35px rgba(23,33,27,.2);
+    backdrop-filter: blur(14px);
+  }
+  body.signed-in .menu-button {
+    min-height: 48px;
+    padding: 8px 10px;
+    font-size: .82rem;
+  }
+  body.signed-in .logout-menu-button {
+    grid-column: auto;
+    margin-left: 0;
+  }
+  body.signed-in .feature-view { padding: 20px 14px; border-radius: 14px; }
+  body.signed-in .section-heading { flex-direction: row; align-items: center; }
+  body.signed-in .ledger-totals {
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  body.signed-in .ledger-totals div:last-child { grid-column: 1 / -1; }
+  body.signed-in .table-wrap { overflow: visible; margin-top: 14px; }
+  body.signed-in table,
+  body.signed-in tbody,
+  body.signed-in tr,
+  body.signed-in td { display: block; width: 100%; }
+  body.signed-in thead { display: none; }
+  body.signed-in tbody { display: grid; gap: 10px; }
+  body.signed-in tr {
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: white;
+  }
+  body.signed-in td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 0;
+    border: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  body.signed-in td::before {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  body.signed-in td:nth-child(1)::before { content: "Date"; }
+  body.signed-in td:nth-child(2)::before { content: "Partner"; }
+  body.signed-in td:nth-child(3)::before { content: "Account"; }
+  body.signed-in td:nth-child(4)::before { content: "Status"; }
+  body.signed-in td:nth-child(5)::before { content: "Amount"; }
+  body.signed-in td.amount {
+    font-size: 1.05rem;
+    font-weight: 750;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 390px) {
+  body.signed-in .menu-button { padding-inline: 7px; font-size: .76rem; }
+  body.signed-in .section-heading { align-items: flex-start; }
+}
