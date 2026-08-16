@@ -341,3 +341,52 @@ select { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-
 body.signed-in .app-menu { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 560px) { .form-grid, .planning-totals { grid-template-columns: 1fr; } .field-wide { grid-column: auto; } .occurrence-row { align-items: flex-start; flex-direction: column; } .status-actions { justify-content: flex-start; } }
 @media (max-width: 390px) { body.signed-in .menu-button { font-size: .72rem; } }
+
+/* Compact planning v2 */
+.planning-stack { gap: 12px; }
+.planning-summary, .plan-editor { padding: 20px 22px; }
+.compact-title { display: flex; align-items: center; justify-content: space-between; }
+.compact-title h2 { margin: 0; font-size: 1.45rem; }
+.icon-button { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--green); font-size: 1.1rem; }
+.planning-totals { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 13px; border-top: 1px solid var(--line); }
+.planning-totals div { padding: 12px 0 0; background: transparent; border-radius: 0; }
+.planning-totals div + div { padding-left: 18px; border-left: 1px solid var(--line); }
+.planning-totals span, .planning-totals strong { display: inline; }
+.planning-totals strong { margin-left: 8px; font-size: 1rem; }
+.plan-editor .eyebrow { margin-bottom: 12px; }
+.plan-editor input, .plan-editor select { margin: 0; min-height: 46px; border-color: #cfd5cf; background: #fff; }
+.name-amount-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(105px, 1fr); gap: 9px; margin-top: 10px; }
+.switch-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 9px; }
+.segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 11px; background: #efeee8; }
+.segmented button { min-height: 38px; padding: 7px 9px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: .82rem; font-weight: 700; }
+.segmented button.active { color: white; background: var(--green); box-shadow: 0 1px 4px rgba(23,33,27,.12); }
+.flow-switch { width: min(280px, 100%); }
+.compact-fields { gap: 9px; margin-top: 9px; }
+.compact-fields > * { min-width: 0; }
+.plan-editor .primary { margin-top: 10px; }
+.plans-list { gap: 8px; margin-top: 0; }
+.plan-card { padding: 0; overflow: hidden; border-radius: 13px; box-shadow: 0 5px 18px rgba(37,48,41,.04); }
+.plan-card summary { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; align-items: center; gap: 9px; min-height: 58px; padding: 12px 15px; cursor: pointer; list-style: none; }
+.plan-card summary::-webkit-details-marker { display: none; }
+.plan-kind { padding: 4px 7px; border-radius: 999px; color: var(--green); background: #edf4ef; font-size: .68rem; font-weight: 750; text-transform: uppercase; }
+.plan-name { overflow: hidden; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.plan-amount { white-space: nowrap; }
+.chevron { color: var(--muted); transition: transform .15s ease; }
+.plan-card[open] .chevron { transform: rotate(180deg); }
+.plan-details { padding: 0 15px 14px; border-top: 1px solid var(--line); }
+.plan-meta { margin: 12px 0; }
+.plan-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.danger { color: var(--error); border: 1px solid #e2c8c4; background: #fffafa; }
+.occurrence-list { margin-top: 12px; }
+@media (max-width: 560px) {
+  .planning-summary, .plan-editor { padding: 17px 15px; }
+  .planning-totals { grid-template-columns: 1fr 1fr; }
+  .planning-totals div + div { padding-left: 12px; }
+  .planning-totals span, .planning-totals strong { display: block; margin-left: 0; }
+  .name-amount-row { grid-template-columns: minmax(0, 1.65fr) minmax(92px, 1fr); }
+  .switch-row { grid-template-columns: 1fr 1fr; }
+  .segmented button { padding-inline: 5px; font-size: .76rem; }
+  .compact-fields { grid-template-columns: 1fr 1fr; }
+  .plan-card summary { grid-template-columns: auto minmax(0,1fr) auto; }
+  .plan-card summary .chevron { display: none; }
+}
