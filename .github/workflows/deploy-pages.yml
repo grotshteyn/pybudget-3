@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dev
   workflow_dispatch:
 
 permissions:
@@ -32,7 +33,7 @@ jobs:
       - name: Check out development preview
         uses: actions/checkout@v4
         with:
-          ref: feature/rule-based-matching
+          ref: dev
           path: preview
 
       - name: Add development preview
@@ -56,5 +57,4 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-# Production runs assemble both environments.
-# Update this marker when a development preview should be republished: matching-v1
+# The artifact always contains production from main and development from dev.
