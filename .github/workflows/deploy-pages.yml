@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dev
   workflow_dispatch:
 
 permissions:
@@ -32,8 +33,21 @@ jobs:
       - name: Check out development preview
         uses: actions/checkout@v4
         with:
-          ref: feature/rule-based-matching
+          ref: dev
           path: preview
+
+      - name: Verify environment configs
+        run: |
+          grep -F 'https://syihmgdhyhyhtdrwuqdo.supabase.co' site/config.js
+          grep -F 'https://eaijvzlvecezduryigoa.supabase.co' preview/config.dev.js
+          if grep -Fq 'https://syihmgdhyhyhtdrwuqdo.supabase.co' preview/config.dev.js; then
+            echo "Development config points to production Supabase."
+            exit 1
+          fi
+          if grep -Fq 'https://eaijvzlvecezduryigoa.supabase.co' site/config.js; then
+            echo "Production config points to development Supabase."
+            exit 1
+          fi
 
       - name: Add development preview
         run: |
@@ -42,7 +56,7 @@ jobs:
           cp preview/styles.css site/dev/
           cp preview/app.js site/dev/
           cp preview/importer.js site/dev/
-          cp preview/config.js site/dev/
+          cp preview/config.dev.js site/dev/config.js
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -56,5 +70,4 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-# Production runs assemble both environments.
-# Update this marker when a development preview should be republished: matching-v1
+# The artifact always contains production from main and development from dev.

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="PyBudget authentication and bank transaction import">
   <title>PyBudget</title>
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -58,12 +58,39 @@
             <strong id="user-email"></strong>
           </div>
           <nav class="app-menu" aria-label="PyBudget sections">
-            <button id="import-menu-button" class="menu-button active" type="button">Setup</button>
-            <button id="transactions-menu-button" class="menu-button" type="button">All transactions</button>
+            <a class="menu-button" data-view="overview" href="#overview">Overview</a>
+            <a class="menu-button" data-view="transactions" href="#transactions">Transactions</a>
+            <a class="menu-button" data-view="budget" href="#budget">Budget</a>
+            <a class="menu-button" data-view="reports" href="#reports">Reports</a>
+            <a class="menu-button" data-view="setup" href="#setup">Setup</a>
           </nav>
         </section>
 
-        <section id="import-view" class="setup-stack feature-view">
+        <section id="overview-view" class="card feature-view" aria-labelledby="overview-title" hidden>
+          <p class="eyebrow green">Overview</p>
+          <h2 id="overview-title" tabindex="-1">Your workspace</h2>
+          <p class="muted">Import bank transactions and manage your accounts in Setup, then review your recent ledger in Transactions.</p>
+          <div class="view-actions"><a class="secondary" href="#setup">Manage accounts and import</a><a class="secondary" href="#transactions">Review transactions</a></div>
+          <p class="notice warning">Balance overview and available-to-spend calculations are planned and are not available yet.</p>
+        </section>
+
+        <section id="budget-view" class="card feature-view" aria-labelledby="budget-title" hidden>
+          <p class="eyebrow green">Budget</p>
+          <h2 id="budget-title" tabindex="-1">Monthly budget</h2>
+          <p class="notice warning">Not available yet. Monthly category budgets and budget comparisons are planned.</p>
+          <a href="#transactions">Review imported transactions</a>
+        </section>
+
+        <section id="reports-view" class="card feature-view" aria-labelledby="reports-title" hidden>
+          <p class="eyebrow green">Reports</p>
+          <h2 id="reports-title" tabindex="-1">Reports</h2>
+          <label for="report-variant">Report</label>
+          <select id="report-variant"><option value="expenses">Expense summary</option><option value="settlement">Settlement</option></select>
+          <p id="report-message" class="notice warning" role="status" aria-live="polite"></p>
+        </section>
+
+        <section id="import-view" class="setup-stack feature-view" aria-labelledby="setup-title" hidden>
+          <section class="card"><p class="eyebrow green">Setup</p><h2 id="setup-title" tabindex="-1">Accounts, imports, and categories</h2></section>
           <section class="card">
             <div class="section-heading">
               <div><p class="eyebrow green">Accounts</p><h2>Detected bank accounts</h2></div>
@@ -90,22 +117,31 @@
           <button id="import-button" class="primary" type="button" disabled>Import transactions</button>
           <p id="import-message" class="notice" role="status" aria-live="polite" hidden></p>
           </section>
+          <section class="card" aria-labelledby="categories-title">
+            <p class="eyebrow green">Categories</p><h2 id="categories-title">Category setup</h2>
+            <p class="notice warning">Not available yet. Category management and categorization rules are planned.</p>
+          </section>
         </section>
 
-        <section id="transactions-view" class="card transactions-card feature-view" hidden>
+        <section id="transactions-view" class="card transactions-card feature-view" aria-labelledby="transactions-title" hidden>
           <div class="section-heading">
             <div>
               <p class="eyebrow green">Ledger</p>
-              <h2>Recent transactions</h2>
+              <h2 id="transactions-title" tabindex="-1">Recent transactions</h2>
             </div>
             <button id="refresh-transactions" class="compact secondary" type="button">Refresh</button>
+          </div>
+          <p class="muted">Showing up to the 200 most recent imported transactions. Totals apply to the filtered rows; they are not account balances.</p>
+          <div class="transaction-filters">
+            <div><label for="transaction-status">Status</label><select id="transaction-status"><option value="all">All statuses</option><option value="booked">Booked</option><option value="pending">Pending</option></select></div>
+            <div><label for="transaction-search">Search transactions</label><input id="transaction-search" type="search" maxlength="120" placeholder="Partner, description, or account"></div>
           </div>
           <div class="ledger-totals">
             <div><span>Booked</span><strong id="booked-total">€0.00</strong></div>
             <div><span>Pending</span><strong id="pending-total">€0.00</strong></div>
             <div><span>Net including pending</span><strong id="combined-total">€0.00</strong></div>
           </div>
-          <p id="transactions-message" class="notice" role="status" hidden></p>
+          <p id="transactions-message" class="notice" role="status" aria-live="polite" hidden></p>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Date</th><th>Partner</th><th>Account</th><th>Status</th><th class="amount">Amount</th></tr></thead>
@@ -129,6 +165,6 @@
 
   <script src="config.js?v=5"></script>
   <script src="importer.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
