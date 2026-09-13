@@ -36,6 +36,19 @@ jobs:
           ref: dev
           path: preview
 
+      - name: Verify environment configs
+        run: |
+          grep -F 'https://syihmgdhyhyhtdrwuqdo.supabase.co' site/config.js
+          grep -F 'https://eaijvzlvecezduryigoa.supabase.co' preview/config.dev.js
+          if grep -Fq 'https://syihmgdhyhyhtdrwuqdo.supabase.co' preview/config.dev.js; then
+            echo "Development config points to production Supabase."
+            exit 1
+          fi
+          if grep -Fq 'https://eaijvzlvecezduryigoa.supabase.co' site/config.js; then
+            echo "Production config points to development Supabase."
+            exit 1
+          fi
+
       - name: Add development preview
         run: |
           mkdir -p site/dev
