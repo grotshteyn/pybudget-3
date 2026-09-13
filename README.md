@@ -13,6 +13,9 @@ PyBudget is a phone-friendly budgeting application using a static GitHub Pages f
 - Bank-reference deduplication
 - Pending-to-booked reconciliation
 - Recent transaction ledger and pending totals
+- Responsive navigation: Overview, Transactions, Budget, Reports, and Setup
+- Direct links and retained transaction status/search and report selection across refresh and login
+- Account rename, archive, and reactivation in Setup
 
 ## Supabase setup
 
@@ -34,11 +37,29 @@ Changes must be published and verified on the separate development preview befor
 
 ## Tests
 
-The importer has no build dependency. Run:
+The static frontend has no build step. Run the importer checks directly:
 
 ```bash
 node tests/importer.test.js
 ```
+
+Run the synthetic browser regression checks with Node.js 20 or newer:
+
+```bash
+npm ci
+npx playwright install chromium
+npm test
+```
+
+To use an installed Edge browser instead, set `TEST_BROWSER_CHANNEL=msedge` when running the tests. Browser tests intercept Supabase and use synthetic fixtures; they do not access a live database.
+
+## Navigation
+
+Use links such as `#transactions?status=pending&q=shop` or `#reports?report=settlement`. Recognized views are `overview`, `transactions`, `budget`, `reports`, and `setup`. Links take precedence over saved state. State is retained in the URL and session storage for the current browser tab. Transaction search text is cleared on successful logout so merchant or description searches are not left in the URL or retained for the next login.
+
+Overview provides shortcuts. Balance calculations, monthly budgets, category management (in Setup), expense summaries, and settlement reports are explicitly marked as planned. The transaction view reads at most 200 recent rows; displayed totals apply to its filters and are not account balances.
+
+The development and production Supabase environments are active. Login and CSV import have been verified on both environments; continue to follow `docs/TEST_PLAN.md` for regression and RLS checks.
 
 All committed fixtures are synthetic. Do not commit real bank exports.
 

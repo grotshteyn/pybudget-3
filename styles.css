@@ -315,3 +315,35 @@ body.signed-in .logout-menu-button { display: none; }
   .account-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .account-actions button { width: 100%; }
 }
+
+/* Five-section navigation stays in normal flow so it cannot cover controls. */
+body.signed-in .dashboard { grid-template-columns: minmax(0, 1fr); }
+body.signed-in .app-menu {
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  padding: 0;
+  border: 0;
+}
+.menu-button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+a { color: var(--green); }
+a:focus-visible, button:focus-visible, select:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+h2[tabindex]:focus { outline: none; }
+select { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px; background: white; color: var(--ink); font: inherit; }
+.transaction-filters { display: grid; grid-template-columns: minmax(140px, 1fr) 2fr; gap: 14px; }
+.view-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.view-actions a { text-decoration: none; }
+.notice.loading, .notice.empty { color: var(--muted); background: #efeee7; }
+body.signed-in .auth-panel { padding-bottom: 24px; }
+@media (max-width: 760px) {
+  body.signed-in .app-menu { gap: 8px; margin-top: 18px; }
+  body.signed-in .menu-button { flex: 1 1 90px; min-height: 44px; white-space: normal; }
+  body.signed-in .auth-panel { padding-bottom: 24px; }
+  .transaction-filters { grid-template-columns: 1fr; gap: 0; }
+}
+/* Keep nested Setup cards aligned with the application width. */
+body.signed-in .dashboard, body.signed-in .setup-stack > .card { width: 100%; }
+body.signed-in .setup-stack { padding: 0; box-shadow: none; }

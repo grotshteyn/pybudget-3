@@ -23,8 +23,11 @@ const elements = {
   authMessage: document.querySelector("#auth-message"),
   userEmail: document.querySelector("#user-email"),
   logoutButton: document.querySelector("#logout-button"),
-  importMenuButton: document.querySelector("#import-menu-button"),
-  transactionsMenuButton: document.querySelector("#transactions-menu-button"),
+  navigationLinks: document.querySelectorAll(".app-menu [data-view]"),
+  transactionStatus: document.querySelector("#transaction-status"),
+  transactionSearch: document.querySelector("#transaction-search"),
+  reportVariant: document.querySelector("#report-variant"),
+  reportMessage: document.querySelector("#report-message"),
   importView: document.querySelector("#import-view"),
   transactionsView: document.querySelector("#transactions-view"),
   refreshAccounts: document.querySelector("#refresh-accounts"),
@@ -53,6 +56,49 @@ const elements = {
 let mode = "login";
 let currentUser = null;
 let parsedImport = null;
+let transactions = [];
+let transactionState = "idle";
+let transactionError = "";
+let sessionVersion = 0;
+let accountsRequest = 0;
+let transactionsRequest = 0;
+let fileRequest = 0;
+const views = { overview: "overview-view", transactions: "transactions-view", budget: "budget-view", reports: "reports-view", setup: "import-view" };
+const navigationKey = "pybudget.navigation.v1";
+
+function readNavigation() {
+  let route = window.location.hash.slice(1);
+  if (!Object.hasOwn(views, route.split("?")[0])) {
+    try { route = sessionStorage.getItem(navigationKey) || "overview"; } catch { route = "overview"; }
+  }
+  const [view, query = ""] = route.split("?");
+  const params = new URLSearchParams(query);
+  return {
+    view: Object.hasOwn(views, view) ? view : "overview",
+    status: ["booked", "pending"].includes(params.get("status")) ? params.get("status") : "all",
+    search: (params.get("q") || "").slice(0, 120),
+    report: params.get("report") === "settlement" ? "settlement" : "expenses"
+  };
+}
+let navigation = readNavigation();
+
+function navigationHash(view = navigation.view) {
+  const params = new URLSearchParams();
+  if (navigation.status !== "all") params.set("status", navigation.status);
+  if (navigation.search) params.set("q", navigation.search);
+  if (navigation.report !== "expenses") params.set("report", navigation.report);
+  return `#${view}${params.size ? `?${params}` : ""}`;
+}
+
+function retainNavigation() {
+  const hash = navigationHash();
+  try { sessionStorage.setItem(navigationKey, hash.slice(1)); } catch { /* Direct links still work when storage is unavailable. */ }
+  window.history.replaceState(null, "", hash);
+  document.querySelectorAll('a[href^="#"]').forEach((link) => {
+    const view = link.getAttribute("href").slice(1).split("?")[0];
+    if (Object.hasOwn(views, view)) link.href = navigationHash(view);
+  });
+}
 
 function showMessage(element, text, type = "error") {
   element.textContent = text;
@@ -124,7 +170,9 @@ function accountCard(account) {
 
   const label = document.createElement("label");
   label.textContent = "Display name";
+  label.htmlFor = `account-name-${account.id}`;
   const input = document.createElement("input");
+  input.id = label.htmlFor;
   input.name = "display_name";
   input.maxLength = 80;
   input.required = true;
@@ -152,47 +200,79 @@ function accountCard(account) {
 
 async function loadAccounts() {
   if (!client || !currentUser) return;
-  clearMessage(elements.accountsMessage);
-  const { data, error } = await client.from("bank_accounts")
-    .select("id,source,external_key,display_name,currency,is_active,created_at,updated_at")
-    .order("is_active", { ascending: false }).order("created_at", { ascending: true });
-  if (error) {
-    elements.accountsList.replaceChildren();
-    return showMessage(elements.accountsMessage, error.message);
+  const version = sessionVersion;
+  const request = ++accountsRequest;
+  elements.accountsList.replaceChildren();
+  elements.accountsList.setAttribute("aria-busy", "true");
+  showMessage(elements.accountsMessage, "Loading accounts…", "loading");
+  try {
+    const { data, error } = await client.from("bank_accounts")
+      .select("id,source,external_key,display_name,currency,is_active,created_at,updated_at")
+      .order("is_active", { ascending: false }).order("created_at", { ascending: true });
+    if (version !== sessionVersion || request !== accountsRequest) return;
+    if (error) throw error;
+    clearMessage(elements.accountsMessage);
+    elements.accountsList.replaceChildren(...data.map(accountCard));
+    if (!data.length) showMessage(elements.accountsMessage, "No accounts detected yet. Import a bank CSV below to create them.", "empty");
+  } catch {
+    if (version === sessionVersion && request === accountsRequest) showMessage(elements.accountsMessage, "Could not load accounts. Check your connection and try Refresh.");
+  } finally {
+    if (version === sessionVersion && request === accountsRequest) elements.accountsList.setAttribute("aria-busy", "false");
   }
-  elements.accountsList.replaceChildren(...data.map(accountCard));
-  if (!data.length) showMessage(elements.accountsMessage, "No accounts detected yet. Import a bank CSV below to create them.", "success");
 }
 
 async function updateAccount(accountId, changes) {
   if (!client || !currentUser) return;
   if ("display_name" in changes && !changes.display_name) return showMessage(elements.accountsMessage, "Account name cannot be empty.");
-  clearMessage(elements.accountsMessage);
-  const { error } = await client.from("bank_accounts")
-    .update({ ...changes, updated_at: new Date().toISOString() }).eq("id", accountId);
-  if (error) return showMessage(elements.accountsMessage, error.message);
-  showMessage(elements.accountsMessage, "Account updated.", "success");
-  await loadAccounts();
-  await loadTransactions();
+  const version = sessionVersion;
+  const buttons = elements.accountsList.querySelectorAll("button");
+  buttons.forEach((button) => { button.disabled = true; });
+  showMessage(elements.accountsMessage, "Updating account…", "loading");
+  try {
+    const { error } = await client.from("bank_accounts")
+      .update({ ...changes, updated_at: new Date().toISOString() }).eq("id", accountId);
+    if (version !== sessionVersion) return;
+    if (error) throw error;
+    await loadAccounts();
+    await loadTransactions();
+  } catch {
+    if (version === sessionVersion) showMessage(elements.accountsMessage, "Could not update the account. Check your connection and try again.");
+  } finally { buttons.forEach((button) => { button.disabled = false; }); }
 }
 
 async function loadTransactions() {
   if (!client || !currentUser) return;
-  clearMessage(elements.transactionsMessage);
-  const { data, error } = await client
-    .from("transactions")
-    .select("id,status,amount_cent,currency,booking_date,value_date,transaction_date,partner,description,bank_accounts(display_name)")
-    .order("booking_date", { ascending: false, nullsFirst: true })
-    .limit(200);
-
-  if (error) {
-    elements.transactionsBody.replaceChildren();
-    return showMessage(elements.transactionsMessage, `Transaction schema is not ready: ${error.message}`);
+  const version = sessionVersion;
+  const request = ++transactionsRequest;
+  transactions = [];
+  transactionState = "loading";
+  renderTransactions();
+  try {
+    const { data, error } = await client.from("transactions")
+      .select("id,status,amount_cent,currency,booking_date,value_date,transaction_date,partner,description,bank_accounts(display_name)")
+      .order("booking_date", { ascending: false, nullsFirst: true }).limit(200);
+    if (version !== sessionVersion || request !== transactionsRequest) return;
+    if (error) throw error;
+    transactions = data;
+    transactionState = "ready";
+  } catch {
+    if (version !== sessionVersion || request !== transactionsRequest) return;
+    transactionState = "error";
+    transactionError = "Could not load transactions. Check your connection and try Refresh.";
   }
+  renderTransactions();
+}
 
+function renderTransactions() {
+  clearMessage(elements.transactionsMessage);
+  const filtered = transactions.filter((transaction) =>
+    (navigation.status === "all" || transaction.status === navigation.status) &&
+    [transaction.partner, transaction.description, transaction.bank_accounts?.display_name]
+      .some((value) => (value || "").toLowerCase().includes(navigation.search.toLowerCase()))
+  );
   let booked = 0;
   let pending = 0;
-  const rows = data.map((transaction) => {
+  const rows = filtered.map((transaction) => {
     if (transaction.status === "pending") pending += Number(transaction.amount_cent);
     if (transaction.status === "booked") booked += Number(transaction.amount_cent);
     const row = document.createElement("tr");
@@ -212,32 +292,58 @@ async function loadTransactions() {
   elements.bookedTotal.textContent = formatMoney(booked);
   elements.pendingTotal.textContent = formatMoney(pending);
   elements.combinedTotal.textContent = formatMoney(booked + pending);
-  if (!data.length) showMessage(elements.transactionsMessage, "No imported transactions yet.", "success");
+  if (transactionState === "loading") showMessage(elements.transactionsMessage, "Loading transactions…", "loading");
+  else if (transactionState === "error") showMessage(elements.transactionsMessage, transactionError);
+  else if (!transactions.length) showMessage(elements.transactionsMessage, "No imported transactions yet. Import a bank CSV in Setup.", "empty");
+  else if (!filtered.length) showMessage(elements.transactionsMessage, "No transactions match these filters. Change the status or search text.", "empty");
+  elements.transactionsView.setAttribute("aria-busy", String(transactionState === "loading"));
 }
 
-function showFeature(feature) {
-  const showImport = feature === "import";
-  elements.importView.hidden = !showImport;
-  elements.transactionsView.hidden = showImport;
-  elements.importMenuButton.classList.toggle("active", showImport);
-  elements.transactionsMenuButton.classList.toggle("active", !showImport);
-  elements.importMenuButton.setAttribute("aria-current", showImport ? "page" : "false");
-  elements.transactionsMenuButton.setAttribute("aria-current", showImport ? "false" : "page");
-  if (showImport) loadAccounts();
-  else loadTransactions();
+function showFeature({ focus = false, load = true } = {}) {
+  elements.transactionStatus.value = navigation.status;
+  elements.transactionSearch.value = navigation.search;
+  elements.reportVariant.value = navigation.report;
+  elements.reportMessage.textContent = `${navigation.report === "settlement" ? "Settlement" : "Expense summary"} is not available yet. This report is planned.`;
+  Object.entries(views).forEach(([view, id]) => { document.getElementById(id).hidden = view !== navigation.view; });
+  elements.navigationLinks.forEach((link) => {
+    const active = link.dataset.view === navigation.view;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+  retainNavigation();
+  document.title = `${navigation.view[0].toUpperCase()}${navigation.view.slice(1)} · PyBudget`;
+  if (focus) document.querySelector(`#${views[navigation.view]} h2[tabindex]`).focus();
+  if (load && navigation.view === "setup") loadAccounts();
+  if (load && navigation.view === "transactions") loadTransactions();
 }
 
 function renderSession(session) {
+  const previousId = currentUser?.id;
   const signedIn = Boolean(session?.user);
   currentUser = session?.user || null;
   document.body.classList.toggle("signed-in", signedIn);
   elements.authView.hidden = signedIn;
   elements.dashboardView.hidden = !signedIn;
   elements.userEmail.textContent = currentUser?.email || "";
-  if (currentUser) {
-    loadTestField(currentUser);
-    showFeature("import");
+  if (previousId !== currentUser?.id) {
+    sessionVersion++;
+    transactions = [];
+    transactionState = "idle";
+    elements.transactionsBody.replaceChildren();
+    elements.accountsList.replaceChildren();
+    elements.csvFile.value = "";
+    parsedImport = null;
+    elements.importPreview.hidden = true;
+    elements.importButton.disabled = true;
+    clearMessage(elements.importMessage);
+    elements.testField.value = "";
   }
+  if (currentUser) {
+    if (previousId !== currentUser.id) loadTestField(currentUser).catch(() => {});
+    showFeature({ load: previousId !== currentUser.id });
+  }
+  else document.title = "Log in · PyBudget";
 }
 
 async function handleSubmit(event) {
@@ -303,33 +409,51 @@ async function handleFileSelection() {
 
 async function importTransactions() {
   if (!client || !currentUser || !parsedImport) return;
+  const version = sessionVersion;
   elements.importButton.disabled = true;
-  showMessage(elements.importMessage, "Importing and reconciling transactions…", "success");
-  const { data, error } = await client.rpc("import_comdirect_transactions", {
-    p_file_name: parsedImport.file_name,
-    p_file_sha256: parsedImport.file_sha256,
-    p_period_start: parsedImport.period_start,
-    p_period_end: parsedImport.period_end,
-    p_accounts: parsedImport.accounts
-  });
-  elements.importButton.disabled = false;
-  if (error) return showMessage(elements.importMessage, error.message);
-  const prefix = data.already_imported ? "This exact file was already imported." : "Import complete.";
-  showMessage(
-    elements.importMessage,
-    `${prefix} Added ${data.inserted}, reconciled ${data.reconciled}, skipped ${data.duplicates}, rejected ${data.rejected}.`,
-    "success"
-  );
-  await loadTransactions();
-  await loadAccounts();
+  showMessage(elements.importMessage, "Importing and reconciling transactions…", "loading");
+  try {
+    const { data, error } = await client.rpc("import_comdirect_transactions", {
+      p_file_name: parsedImport.file_name,
+      p_file_sha256: parsedImport.file_sha256,
+      p_period_start: parsedImport.period_start,
+      p_period_end: parsedImport.period_end,
+      p_accounts: parsedImport.accounts
+    });
+    if (version !== sessionVersion) return;
+    if (error) throw error;
+    const prefix = data.already_imported ? "This exact file was already imported." : "Import complete.";
+    showMessage(elements.importMessage,
+      prefix + " Added " + data.inserted + ", reconciled " + data.reconciled + ", skipped " + data.duplicates + ", rejected " + data.rejected + ".", "success");
+    await loadTransactions();
+    await loadAccounts();
+  } catch {
+    if (version === sessionVersion) showMessage(elements.importMessage, "Could not import transactions. Check your connection and try again. Retrying the same file is safe.");
+  } finally {
+    if (version === sessionVersion) elements.importButton.disabled = !parsedImport;
+  }
 }
 
 elements.loginTab.addEventListener("click", () => setMode("login"));
 elements.signupTab.addEventListener("click", () => setMode("signup"));
 elements.authForm.addEventListener("submit", handleSubmit);
 elements.resetButton.addEventListener("click", resetPassword);
-elements.importMenuButton.addEventListener("click", () => showFeature("import"));
-elements.transactionsMenuButton.addEventListener("click", () => showFeature("transactions"));
+window.addEventListener("hashchange", () => {
+  navigation = readNavigation();
+  if (currentUser) showFeature({ focus: true });
+});
+function updateFilters() {
+  navigation.status = elements.transactionStatus.value;
+  navigation.search = elements.transactionSearch.value.slice(0, 120);
+  retainNavigation();
+  renderTransactions();
+}
+elements.transactionStatus.addEventListener("change", updateFilters);
+elements.transactionSearch.addEventListener("input", updateFilters);
+elements.reportVariant.addEventListener("change", () => {
+  navigation.report = elements.reportVariant.value;
+  showFeature({ load: false });
+});
 elements.refreshAccounts.addEventListener("click", loadAccounts);
 elements.csvFile.addEventListener("change", handleFileSelection);
 elements.importButton.addEventListener("click", importTransactions);
@@ -348,8 +472,18 @@ elements.testFieldForm.addEventListener("submit", async (event) => {
   showMessage(elements.dataMessage, "Saved privately to Supabase.", "success");
 });
 elements.logoutButton.addEventListener("click", async () => {
-  if (client) await client.auth.signOut();
-  renderSession(null);
+  elements.logoutButton.disabled = true;
+  try {
+    if (client) {
+      const { error } = await client.auth.signOut();
+      if (error) throw error;
+    }
+    navigation.search = "";
+    retainNavigation();
+    renderSession(null);
+  } catch {
+    window.alert("Could not log out. Check your connection and try again.");
+  } finally { elements.logoutButton.disabled = false; }
 });
 
 if (!configured) {
