@@ -351,3 +351,10 @@ body.signed-in .setup-stack { padding: 0; box-shadow: none; }
 .review-candidate { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
 .review-candidate span { overflow-wrap: anywhere; }
 @media (max-width: 560px) { .review-candidate { align-items: stretch; flex-direction: column; } .review-candidate button { width: 100%; } }
+
+.ledger-pagination { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:16px 0; }
+.transactions-card details { max-width:300px; overflow-wrap:anywhere; text-align:left; }
+body.signed-in td:nth-child(6)::before { content:'Details'; }
+.section-heading > div { min-width:0; }
+.section-heading h2 { overflow-wrap:anywhere; }
+@media(max-width:560px) { .section-heading { flex-wrap:wrap; } }
