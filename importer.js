@@ -255,7 +255,9 @@
           while (n && cells[n - 1] === "") n -= 1;
           return n;
         };
-        if (width(row) !== width(header)) throw new Error("Invalid transaction column count");
+        const headerWidth = width(header);
+        const hasColumns = row.length >= headerWidth && row.slice(headerWidth).every((cell) => cell === '');
+        if (width(row) !== headerWidth && !hasColumns) throw new Error("Invalid transaction column count");
         const raw = {};
         header.forEach((name, index) => {
           if (name) raw[name] = row[index] ?? "";
