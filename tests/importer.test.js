@@ -87,3 +87,55 @@ console.log("Issue 5 regression tests passed");
 for (const amount of ["1 234,56", "1EUR2", "1€2", "EUR 2,00"]) assert.throws(() => importer.parseGermanAmountToCents(amount));
 assert.equal(importer.parseGermanAmountToCents(" 1.234,56 EUR "), 123456);
 assert.equal(importer.parseComdirectText(fixture("comdirect-sections.csv").replaceAll("Referenz", "Reference")).accounts[1].transactions[0].bank_reference, "000 A  B/01");
+
+// Review regressions run against both section layouts.
+const reviewLayouts = [
+  ["Wertstellung (Valuta)", "Vorgang", "Buchungstext", "Umsatz in EUR"],
+  ["Umsatztag", "Vorgang", "Referenz", "Buchungstext", "Umsatz in EUR"]
+];
+const encodeRow = cells => cells.map(cell => '"' + cell.replace(/"/g, '""') + '"').join(";") + ";";
+for (const columns of reviewLayouts) {
+  const header = ["Buchungstag", ...columns];
+  const transaction = (marker, description) => header.map(name => ({
+    Buchungstag: marker,
+    "Wertstellung (Valuta)": "02.03.2024",
+    Umsatztag: "02.03.2024",
+    Vorgang: "Lastschrift / Belastung",
+    Referenz: "SYNTHETIC/001",
+    Buchungstext: description,
+    "Umsatz in EUR": "-10,00"
+  })[name]);
+  const parse = rows => importer.parseComdirectText([
+    ["Umsätze Synthetic Review", "Zeitraum: 01.03.2024 - 31.03.2024"],
+    header, ...rows
+  ].map(encodeRow).join("\n"));
+
+  const purpose = "Invoice Zeitraum: 01.02.2024 - 29.02.2024";
+  const metadata = parse([["Zeitraum: 01.03.2024 - 31.03.2024"], transaction("02.03.2024", purpose)]);
+  assert.equal(metadata.transaction_count, 1, "Period text in a purpose must not discard a transaction");
+  assert.equal(metadata.errors.length, 0);
+  assert.equal(metadata.accounts[0].transactions[0].description, purpose);
+  assert.equal(metadata.period_start, "2024-03-01");
+  const invalidPurpose = parse([transaction("02.03.2024", "Invoice Zeitraum: 31.02.2024 - 31.03.2024")]);
+  assert.equal(invalidPurpose.transaction_count, 1);
+  assert.equal(invalidPurpose.errors.length, 0);
+
+  for (const badDate of ["2.03.2024", "31.02.2024", "2024-03-02", "not a date", "offen", "--"]) {
+    const dates = parse([["01.03.2024"], [badDate], transaction("neu", "No stale context"),
+      transaction("offen", "Still pending"), ["03.03.2024"], transaction("neu", "Recovered context")]);
+    assert.equal(dates.errors.length, 2, "Invalid context and following neu must both report errors");
+    assert.deepEqual(dates.errors.map(error => error.row), [4, 5]);
+    assert.equal(dates.errors[1].code, "missing_booking_date_context");
+    assert.equal(dates.transaction_count, 2);
+    assert.equal(dates.accounts[0].transactions[0].booking_date, null);
+    assert.equal(dates.accounts[0].transactions[1].booking_date, "2024-03-03");
+  }
+
+  const summaries = parse([["Saldo:", "100,00"], ["Kontostand: 100,00 EUR"],
+    ["Keine Umsätze vorhanden"], transaction("Saldo broken", "Malformed transaction"),
+    transaction("Keine Umsätze", "Also malformed"), transaction("02.03.2024", "Valid after errors")]);
+  assert.equal(summaries.errors.length, 2, "Summary prefixes must not hide full malformed transactions");
+  assert.deepEqual(summaries.errors.map(error => error.row), [6, 7]);
+  assert.equal(summaries.transaction_count, 1);
+}
+console.log("Review regression tests passed");

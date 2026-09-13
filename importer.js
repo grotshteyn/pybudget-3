@@ -159,9 +159,28 @@
   }
 
   function parsePeriod(row) {
-    const text = row.join(" ");
-    const match = /Zeitraum:\s*(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})/i.exec(text);
+    const cells = normalizeWhitespace(row[0]).startsWith("Umsätze ") ? row.slice(1) : row;
+    const text = normalizeWhitespace(cells.join(" "));
+    const match = /^Zeitraum:\s*(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})$/i.exec(text);
     return match ? { start: parseGermanDate(match[1]), end: parseGermanDate(match[2]) } : null;
+  }
+
+  function isSummaryRow(row) {
+    const first = normalizeWhitespace(row[0]);
+    const balances = /^(?:Kontostand|Aktueller Kontostand|Saldo|Anfangssaldo|Endsaldo|Alter Kontostand|Neuer Kontostand|Summe|Gesamtsumme|Verfügbarer Betrag)(?:\b|:)/i;
+    const emptyNotice = /^(?:Keine Umsätze|Keine Buchungen|Keine Transaktionen|Es liegen keine Umsätze)(?:\b|:)/i;
+    const remaining = row.slice(1).filter((cell) => normalizeWhitespace(cell));
+    if (emptyNotice.test(first)) return remaining.length === 0;
+    if (!balances.test(first)) return false;
+    // Summary values may occupy date columns, but transaction text is never a summary.
+    return remaining.every((cell) => {
+      try {
+        parseGermanAmountToCents(cell);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    });
   }
 
   function parseComdirectText(text) {
@@ -206,7 +225,7 @@
           return;
         }
 
-        const period = parsePeriod(row);
+        const period = /^Zeitraum:/i.test(first) ? parsePeriod(row) : null;
         if (period) {
           periodStart = periodStart || period.start;
           periodEnd = periodEnd || period.end;
@@ -223,10 +242,12 @@
         }
 
         if (!current || !header) return;
-        if (/^(?:Kontostand|Aktueller Kontostand|Saldo|Anfangssaldo|Endsaldo|Alter Kontostand|Neuer Kontostand|Summe|Gesamtsumme|Verfügbarer Betrag|Keine Umsätze|Keine Buchungen|Keine Transaktionen|Es liegen keine Umsätze)(?:\b|:)/i.test(first)) return;
-        if (row.slice(1).every((cell) => !normalizeWhitespace(cell)) && /^\d{2}\.\d{2}\.\d{4}$/.test(first)) {
+        if (isSummaryRow(row)) return;
+        if (first && row.slice(1).every((cell) => !normalizeWhitespace(cell))) {
+          // An invalid context row must never leave an older booking date active.
           dateContext = null;
           dateContext = parseGermanDate(first);
+          if (!dateContext) throw new Error("Invalid date-only context row: " + first);
           return;
         }
         const width = (cells) => {

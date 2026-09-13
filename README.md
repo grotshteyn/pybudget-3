@@ -50,3 +50,5 @@ All committed fixtures are synthetic. Do not commit real bank exports.
 Date-only rows set booking-date context for following `neu` rows in the same account section. Pending rows keep a null booking date. Each section uses its own header, and recognized bank summaries are skipped. Invalid transaction rows return a row number, error code, and English message. Invalid CSV quoting rejects the whole file with `invalid_csv` to avoid importing ambiguous records.
 
 The synthetic regression fixtures cover Giro and Visa layouts, account boundaries, repeated headers and transactions, references, quoted text, calendar dates, and exact German amounts.
+
+Period metadata is recognized only in account/period rows, so period text in transaction descriptions remains transaction content. Malformed date-only rows clear booking-date context and produce an error; subsequent `neu` rows require a new valid date. Summary rows require empty or monetary-only remaining cells so summary-like booking markers cannot hide full malformed transactions.
