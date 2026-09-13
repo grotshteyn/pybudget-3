@@ -347,3 +347,7 @@ body.signed-in .auth-panel { padding-bottom: 24px; }
 /* Keep nested Setup cards aligned with the application width. */
 body.signed-in .dashboard, body.signed-in .setup-stack > .card { width: 100%; }
 body.signed-in .setup-stack { padding: 0; box-shadow: none; }
+
+.review-candidate { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.review-candidate span { overflow-wrap: anywhere; }
+@media (max-width: 560px) { .review-candidate { align-items: stretch; flex-direction: column; } .review-candidate button { width: 100%; } }
