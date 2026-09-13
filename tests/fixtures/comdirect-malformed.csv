@@ -1,0 +1,9 @@
+"Umsätze Synthetic Giro";
+"Buchungstag";"Wertstellung (Valuta)";"Vorgang";"Buchungstext";"Umsatz in EUR";
+"31.02.2024";"";"";"";"";
+"neu";"01.03.2024";"Gutschrift";"No valid date context";"1,00";
+"01.03.2024";"31.04.2024";"Gutschrift";"Invalid value date";"1,00";
+"01.03.2024";"01.03.2024";"Gutschrift";"Invalid grouping";"12.34,56";
+"01.03.2024";"01.03.2024";"Gutschrift";"Missing amount";
+"";"01.03.2024";"Gutschrift";"Visible malformed amount";"bad";
+"01.03.2024";"01.03.2024";"Gutschrift";"Valid after errors";"0,01";

@@ -33,6 +33,8 @@ GitHub Pages deploys the root files from `main`. Configure Supabase Auth:
 - Site URL: `https://grotshteyn.github.io/pybudget-3/`
 - Redirect URL: `https://grotshteyn.github.io/pybudget-3/**`
 
+Changes must be published and verified on the separate development preview before merging into `main`. Follow [the dev-first release process](docs/RELEASE_PROCESS.md); merging into `main` publishes production and does not update the development source branch.
+
 ## Tests
 
 The static frontend has no build step. Run the importer checks directly:
@@ -65,3 +67,11 @@ All committed fixtures are synthetic. Do not commit real bank exports.
 
 - `docs/ROADMAP.md`
 - `docs/CURRENT_FEATURE_PLAN.md`
+
+### Comdirect import validation
+
+Date-only rows set booking-date context for following `neu` rows in the same account section. Pending rows keep a null booking date. Each section uses its own header, and recognized bank summaries are skipped. Invalid transaction rows return a row number, error code, and English message. Invalid CSV quoting rejects the whole file with `invalid_csv` to avoid importing ambiguous records.
+
+The synthetic regression fixtures cover Giro and Visa layouts, account boundaries, repeated headers and transactions, references, quoted text, calendar dates, and exact German amounts.
+
+Period metadata is recognized only in account/period rows, so period text in transaction descriptions remains transaction content. Malformed date-only rows clear booking-date context and produce an error; subsequent `neu` rows require a new valid date. Summary rows require empty or monetary-only remaining cells so summary-like booking markers cannot hide full malformed transactions.

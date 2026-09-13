@@ -27,6 +27,7 @@
     let row = [];
     let field = "";
     let quoted = false;
+    let closed = false;
 
     for (let i = 0; i < text.length; i += 1) {
       const char = text[i];
@@ -36,25 +37,31 @@
           i += 1;
         } else if (char === '"') {
           quoted = false;
+          closed = true;
         } else {
           field += char;
         }
       } else if (char === '"') {
+        if (field || closed) throw new Error("Invalid CSV: unexpected quote");
         quoted = true;
       } else if (char === ";") {
         row.push(field);
         field = "";
+        closed = false;
       } else if (char === "\n") {
         row.push(field.replace(/\r$/, ""));
         rows.push(row);
         row = [];
         field = "";
+        closed = false;
       } else {
+        if (closed && !(char === "\r" && (text[i + 1] === "\n" || i === text.length - 1))) throw new Error("Invalid CSV: characters after closing quote");
         field += char;
       }
     }
 
-    if (field || row.length) {
+    if (quoted) throw new Error("Invalid CSV: unterminated quoted field");
+    if (field || row.length || closed) {
       row.push(field.replace(/\r$/, ""));
       rows.push(row);
     }
@@ -67,9 +74,10 @@
 
   function parseGermanAmountToCents(value) {
     const cleaned = String(value || "")
-      .replace(/\s|€|EUR/gi, "")
+      .trim()
+      .replace(/\s*(?:€|EUR)$/i, "")
       .trim();
-    if (!/^-?[\d.]+(?:,\d{1,2})?$/.test(cleaned)) {
+    if (!/^-?(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(cleaned)) {
       throw new Error(`Invalid amount: ${value}`);
     }
     const negative = cleaned.startsWith("-");
@@ -77,8 +85,9 @@
     const [wholeRaw, fractionRaw = ""] = unsigned.split(",");
     const whole = wholeRaw.replace(/\./g, "");
     const fraction = (fractionRaw + "00").slice(0, 2);
-    const cents = Number.parseInt(whole, 10) * 100 + Number.parseInt(fraction, 10);
-    if (!Number.isSafeInteger(cents)) throw new Error("Amount exceeds safe range");
+    const exact = BigInt(whole) * 100n + BigInt(fraction);
+    if (exact > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("Amount exceeds safe range");
+    const cents = Number(exact);
     return negative ? -cents : cents;
   }
 
@@ -87,11 +96,19 @@
     if (!normalized || normalized === "offen" || normalized === "--") return null;
     const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(normalized);
     if (!match) throw new Error(`Invalid date: ${value}`);
-    return `${match[3]}-${match[2]}-${match[1]}`;
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    const year = Number(match[3]);
+    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (year < 1 || month < 1 || month > 12 || day < 1 || day > days[month - 1]) {
+      throw new Error("Invalid date: " + value);
+    }
+    return match[3] + "-" + match[2] + "-" + match[1];
   }
 
   function extractReference(referenceColumn, description) {
-    const dedicated = normalizeWhitespace(referenceColumn);
+    const dedicated = String(referenceColumn || "").trim();
     if (dedicated) return dedicated;
     const match = /\bRef\.\s*([^\s;]+)/i.exec(String(description || ""));
     return match ? match[1].trim() : null;
@@ -142,62 +159,115 @@
   }
 
   function parsePeriod(row) {
-    const text = row.join(" ");
-    const match = /Zeitraum:\s*(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})/i.exec(text);
+    const cells = normalizeWhitespace(row[0]).startsWith("Umsätze ") ? row.slice(1) : row;
+    const text = normalizeWhitespace(cells.join(" "));
+    const match = /^Zeitraum:\s*(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})$/i.exec(text);
     return match ? { start: parseGermanDate(match[1]), end: parseGermanDate(match[2]) } : null;
   }
 
+  function isSummaryRow(row) {
+    const first = normalizeWhitespace(row[0]);
+    const balances = /^(?:Kontostand|Aktueller Kontostand|Saldo|Anfangssaldo|Endsaldo|Alter Kontostand|Neuer Kontostand|Summe|Gesamtsumme|Verfügbarer Betrag)(?:\b|:)/i;
+    const emptyNotice = /^(?:Keine Umsätze|Keine Buchungen|Keine Transaktionen|Es liegen keine Umsätze)(?:\b|:)/i;
+    const remaining = row.slice(1).filter((cell) => normalizeWhitespace(cell));
+    if (emptyNotice.test(first)) return remaining.length === 0;
+    if (!balances.test(first)) return false;
+    // Summary values may occupy date columns, but transaction text is never a summary.
+    return remaining.every((cell) => {
+      try {
+        parseGermanAmountToCents(cell);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    });
+  }
+
   function parseComdirectText(text) {
-    const rows = parseCsv(text);
+    let rows;
+    try {
+      rows = parseCsv(text.replace(/^\uFEFF/, ""));
+    } catch (error) {
+      return {
+        source: "comdirect", period_start: null, period_end: null, accounts: [],
+        errors: [{ code: "invalid_csv", row: null, message: error.message }],
+        transaction_count: 0, pending_count: 0
+      };
+    }
     const accounts = [];
     const errors = [];
     let current = null;
     let header = null;
+    let dateContext = null;
     let periodStart = null;
     let periodEnd = null;
 
     rows.forEach((row, sourceIndex) => {
       const first = normalizeWhitespace(row[0]);
-      if (!first) return;
+      if (row.every((cell) => !normalizeWhitespace(cell))) return;
+      try {
+        if (first.startsWith("Umsätze ")) {
+          const displayName = first.slice("Umsätze ".length).trim();
+          current = {
+            external_key: stableAccountKey(displayName),
+            display_name: displayName,
+            currency: "EUR",
+            transactions: []
+          };
+          accounts.push(current);
+          header = null;
+          dateContext = null;
+          const period = parsePeriod(row);
+          if (period) {
+            periodStart = periodStart || period.start;
+            periodEnd = periodEnd || period.end;
+          }
+          return;
+        }
 
-      if (first.startsWith("Umsätze ")) {
-        const displayName = first.slice("Umsätze ".length).trim();
-        current = {
-          external_key: stableAccountKey(displayName),
-          display_name: displayName,
-          currency: "EUR",
-          transactions: []
-        };
-        accounts.push(current);
-        header = null;
-        const period = parsePeriod(row);
+        const period = /^Zeitraum:/i.test(first) ? parsePeriod(row) : null;
         if (period) {
           periodStart = periodStart || period.start;
           periodEnd = periodEnd || period.end;
+          return;
         }
-        return;
-      }
 
-      const period = parsePeriod(row);
-      if (period) {
-        periodStart = periodStart || period.start;
-        periodEnd = periodEnd || period.end;
-        return;
-      }
+        if (first === "Buchungstag") {
+          header = row.map(normalizeWhitespace);
+          if (!["Vorgang", "Buchungstext", "Umsatz in EUR"].every((name) => header.includes(name))) {
+            header = null;
+            throw new Error("Unsupported transaction header");
+          }
+          return;
+        }
 
-      if (first === "Buchungstag") {
-        header = row.map(normalizeWhitespace);
-        return;
-      }
+        if (!current || !header) return;
+        if (isSummaryRow(row)) return;
+        if (first && row.slice(1).every((cell) => !normalizeWhitespace(cell))) {
+          // An invalid context row must never leave an older booking date active.
+          dateContext = null;
+          dateContext = parseGermanDate(first);
+          if (!dateContext) throw new Error("Invalid date-only context row: " + first);
+          return;
+        }
+        const width = (cells) => {
+          let n = cells.length;
+          while (n && cells[n - 1] === "") n -= 1;
+          return n;
+        };
+        if (width(row) !== width(header)) throw new Error("Invalid transaction column count");
+        const raw = {};
+        header.forEach((name, index) => {
+          if (name) raw[name] = row[index] ?? "";
+        });
 
-      if (!current || !header) return;
-      const raw = {};
-      header.forEach((name, index) => {
-        if (name) raw[name] = row[index] ?? "";
-      });
-
-      try {
-        const bookingDate = parseGermanDate(raw.Buchungstag);
+        const marker = normalizeWhitespace(raw.Buchungstag).toLowerCase();
+        if (marker === "neu" && !dateContext) {
+          const error = new Error("Booked transaction has no preceding date in this account section");
+          error.code = "missing_booking_date_context";
+          throw error;
+        }
+        const bookingDate = marker === "neu" ? dateContext : parseGermanDate(raw.Buchungstag);
         const valueDate = parseGermanDate(raw["Wertstellung (Valuta)"]);
         const transactionDate = parseGermanDate(raw.Umsatztag);
         const description = normalizeWhitespace(raw.Buchungstext);
@@ -213,7 +283,7 @@
           booking_type: BOOKING_TYPES[bookingTypeRaw] || bookingTypeRaw || null,
           description: description || null,
           partner: extractPartner(description, BOOKING_TYPES[bookingTypeRaw] || bookingTypeRaw),
-          bank_reference: extractReference(raw.Referenz, description),
+          bank_reference: extractReference(raw.Referenz || raw.Reference, description),
           raw_row: raw
         };
         const base = fallbackBase(current.external_key, tx);
@@ -222,7 +292,7 @@
         tx.fallback_fingerprint = simpleStableHash(`${base}|occurrence:${occurrence}`);
         current.transactions.push(tx);
       } catch (error) {
-        errors.push({ row: sourceIndex + 1, message: error.message });
+        errors.push({ code: error.code || "invalid_row", row: sourceIndex + 1, message: error.message });
       }
     });
 
