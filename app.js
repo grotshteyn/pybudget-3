@@ -41,6 +41,9 @@ const elements = {
   previewErrors: document.querySelector("#preview-errors"),
   importButton: document.querySelector("#import-button"),
   importMessage: document.querySelector("#import-message"),
+  refreshReconciliation: document.querySelector("#refresh-reconciliation"),
+  reconciliationList: document.querySelector("#reconciliation-list"),
+  reconciliationMessage: document.querySelector("#reconciliation-message"),
   refreshTransactions: document.querySelector("#refresh-transactions"),
   transactionsBody: document.querySelector("#transactions-body"),
   transactionsMessage: document.querySelector("#transactions-message"),
@@ -407,6 +410,76 @@ async function handleFileSelection() {
   }
 }
 
+async function resolveReview(reviewId, action, candidateId = null) {
+  const version = sessionVersion;
+  clearMessage(elements.reconciliationMessage);
+  const { error } = await client.rpc("resolve_reconciliation_review", {
+    p_review_id: reviewId,
+    p_action: action,
+    p_candidate_transaction_id: candidateId
+  });
+  if (version !== sessionVersion) return;
+  if (error) return showMessage(elements.reconciliationMessage, "Could not resolve this transaction. Refresh and try again.");
+  showMessage(elements.reconciliationMessage, "Reconciliation saved.", "success");
+  await Promise.all([loadReconciliationReviews(), loadTransactions()]);
+}
+
+function reconciliationCard(review) {
+  const card = document.createElement("article");
+  card.className = "account-card";
+  const payload = review.booked_payload || {};
+  const heading = document.createElement("div");
+  heading.className = "account-card-heading";
+  const info = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = payload.partner || payload.description || "Booked transaction";
+  const detail = document.createElement("small");
+  detail.textContent = [payload.transaction_date || payload.booking_date || "Unknown date", formatMoney(Number(payload.amount_cent || 0))].join(" · ");
+  info.append(title, detail);
+  heading.append(info);
+  card.append(heading);
+
+  const candidates = Array.isArray(review.candidate_transaction_ids) ? review.candidate_transaction_ids : [];
+  for (const id of candidates) {
+    const tx = transactions.find((item) => item.id === id);
+    const row = document.createElement("div");
+    row.className = "review-candidate";
+    const text = document.createElement("span");
+    text.textContent = tx ? [formatDate(tx), tx.partner || tx.description || "Pending transaction", formatMoney(tx.amount_cent)].join(" · ") : "Pending candidate";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "compact secondary";
+    button.textContent = "Same transaction";
+    button.addEventListener("click", () => resolveReview(review.id, "same", id));
+    row.append(text, button);
+    card.append(row);
+  }
+  const separate = document.createElement("button");
+  separate.type = "button";
+  separate.className = "compact secondary";
+  separate.textContent = "Separate transaction";
+  separate.addEventListener("click", () => resolveReview(review.id, "separate"));
+  card.append(separate);
+  return card;
+}
+
+async function loadReconciliationReviews() {
+  if (!client || !currentUser) return;
+  const version = sessionVersion;
+  elements.reconciliationList.replaceChildren();
+  showMessage(elements.reconciliationMessage, "Loading reconciliation reviews…", "loading");
+  const { data, error } = await client.from("reconciliation_reviews")
+    .select("id,booked_payload,candidate_transaction_ids,status,created_at")
+    .eq("status", "open")
+    .order("created_at", { ascending: true });
+  if (version !== sessionVersion) return;
+  if (error) return showMessage(elements.reconciliationMessage, "Could not load reconciliation reviews.");
+  const reviews = data || [];
+  elements.reconciliationList.replaceChildren(...reviews.map(reconciliationCard));
+  if (!reviews.length) showMessage(elements.reconciliationMessage, "No transactions need review.", "empty");
+  else showMessage(elements.reconciliationMessage, reviews.length + (reviews.length === 1 ? " transaction needs review." : " transactions need review."), "warning");
+}
+
 async function importTransactions() {
   if (!client || !currentUser || !parsedImport) return;
   const version = sessionVersion;
@@ -430,6 +503,7 @@ async function importTransactions() {
       reviewCount ? "warning" : "success");
     await loadTransactions();
     await loadAccounts();
+    await loadReconciliationReviews();
   } catch {
     if (version === sessionVersion) showMessage(elements.importMessage, "Could not import transactions. Check your connection and try again. Retrying the same file is safe.");
   } finally {
@@ -461,6 +535,7 @@ elements.refreshAccounts.addEventListener("click", loadAccounts);
 elements.csvFile.addEventListener("change", handleFileSelection);
 elements.importButton.addEventListener("click", importTransactions);
 elements.refreshTransactions.addEventListener("click", loadTransactions);
+elements.refreshReconciliation.addEventListener("click", loadReconciliationReviews);
 elements.testFieldForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!client || !currentUser) return;
