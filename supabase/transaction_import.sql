@@ -429,12 +429,7 @@ begin
       end if;
 
       if v_transaction_id is not null then
-        update public.import_batches
-  set review_count = greatest(review_count - 1, 0)
-  where id = v_review.import_batch_id
-    and user_id = v_user_id;
-
-  insert into public.transaction_observations (
+        insert into public.transaction_observations (
           user_id, import_batch_id, transaction_id, account_external_key,
           row_sequence, source_status, bank_reference, raw_row
         ) values (
