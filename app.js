@@ -3,9 +3,11 @@ const configured = Boolean(
   config.supabaseUrl &&
   config.supabaseAnonKey &&
   !config.supabaseUrl.startsWith("YOUR_") &&
-  !config.supabaseAnonKey.startsWith("YOUR_")
+  !config.supabaseAnonKey.startsWith("YOUR_"),
 );
-const client = configured ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey) : null;
+const client = configured
+  ? window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey)
+  : null;
 
 const elements = {
   setupWarning: document.querySelector("#setup-warning"),
@@ -28,7 +30,7 @@ const elements = {
   transactionSearch: document.querySelector("#transaction-search"),
   reportVariant: document.querySelector("#report-variant"),
   reportMessage: document.querySelector("#report-message"),
-  importView: document.querySelector("#import-view"),
+  importView: document.querySelector("#accounts-view"),
   transactionsView: document.querySelector("#transactions-view"),
   refreshAccounts: document.querySelector("#refresh-accounts"),
   accountsList: document.querySelector("#accounts-list"),
@@ -41,6 +43,9 @@ const elements = {
   previewErrors: document.querySelector("#preview-errors"),
   importButton: document.querySelector("#import-button"),
   importMessage: document.querySelector("#import-message"),
+  refreshReconciliation: document.querySelector("#refresh-reconciliation"),
+  reconciliationList: document.querySelector("#reconciliation-list"),
+  reconciliationMessage: document.querySelector("#reconciliation-message"),
   refreshTransactions: document.querySelector("#refresh-transactions"),
   transactionsBody: document.querySelector("#transactions-body"),
   transactionsMessage: document.querySelector("#transactions-message"),
@@ -50,34 +55,81 @@ const elements = {
   testFieldForm: document.querySelector("#test-field-form"),
   testField: document.querySelector("#test-field"),
   saveFieldButton: document.querySelector("#save-field-button"),
-  dataMessage: document.querySelector("#data-message")
+  dataMessage: document.querySelector("#data-message"),
 };
 
 let mode = "login";
 let currentUser = null;
 let parsedImport = null;
+let importBusy = false,
+  recentBatch = null;
+const importDialog = document.querySelector("#import-dialog"),
+  closeImportButton = document.querySelector("#close-import"),
+  importResult = document.querySelector("#import-result"),
+  reviewImports = document.querySelector("#review-imports");
 let transactions = [];
+let ledger = { count: 0, booked: "0", pending: "0", review_count: 0 },
+  ledgerOffset = 0;
+const pageSize = 50;
+let reviewCandidates = [],
+  reviewRequest = 0;
+const ledgerControls = Object.fromEntries(
+  ["account", "start", "end", "direction"].map((k) => [
+    k,
+    document.querySelector("#transaction-" + k),
+  ]),
+);
+const previousPage = document.querySelector("#previous-page"),
+  nextPage = document.querySelector("#next-page"),
+  ledgerPage = document.querySelector("#ledger-page");
 let transactionState = "idle";
 let transactionError = "";
 let sessionVersion = 0;
 let accountsRequest = 0;
 let transactionsRequest = 0;
 let fileRequest = 0;
-const views = { overview: "overview-view", transactions: "transactions-view", budget: "budget-view", reports: "reports-view", setup: "import-view" };
+const views = {
+  overview: "overview-view",
+  transactions: "transactions-view",
+  reports: "reports-view",
+  accounts: "accounts-view",
+};
 const navigationKey = "pybudget.navigation.v1";
 
 function readNavigation() {
-  let route = window.location.hash.slice(1);
+  const migrateRoute = (value) =>
+    value
+      .replace(/^budget(?=\?|$)/, "overview")
+      .replace(/^setup(?=\?|$)/, "accounts");
+  let route = migrateRoute(window.location.hash.slice(1));
   if (!Object.hasOwn(views, route.split("?")[0])) {
-    try { route = sessionStorage.getItem(navigationKey) || "overview"; } catch { route = "overview"; }
+    try {
+      route = migrateRoute(sessionStorage.getItem(navigationKey) || "overview");
+    } catch {
+      route = "overview";
+    }
   }
   const [view, query = ""] = route.split("?");
   const params = new URLSearchParams(query);
   return {
     view: Object.hasOwn(views, view) ? view : "overview",
-    status: ["booked", "pending"].includes(params.get("status")) ? params.get("status") : "all",
+    status: ["booked", "pending", "cancelled"].includes(params.get("status"))
+      ? params.get("status")
+      : "all",
+    account: /^[0-9a-f-]{36}$/i.test(params.get("account") || "")
+      ? params.get("account")
+      : "",
+    start: /^\d{4}-\d{2}-\d{2}$/.test(params.get("start") || "")
+      ? params.get("start")
+      : "",
+    end: /^\d{4}-\d{2}-\d{2}$/.test(params.get("end") || "")
+      ? params.get("end")
+      : "",
+    direction: ["income", "expense"].includes(params.get("direction"))
+      ? params.get("direction")
+      : "all",
     search: (params.get("q") || "").slice(0, 120),
-    report: params.get("report") === "settlement" ? "settlement" : "expenses"
+    report: params.get("report") === "settlement" ? "settlement" : "expenses",
   };
 }
 let navigation = readNavigation();
@@ -86,13 +138,21 @@ function navigationHash(view = navigation.view) {
   const params = new URLSearchParams();
   if (navigation.status !== "all") params.set("status", navigation.status);
   if (navigation.search) params.set("q", navigation.search);
+  for (const k of ["account", "start", "end"])
+    if (navigation[k]) params.set(k, navigation[k]);
+  if (navigation.direction !== "all")
+    params.set("direction", navigation.direction);
   if (navigation.report !== "expenses") params.set("report", navigation.report);
   return `#${view}${params.size ? `?${params}` : ""}`;
 }
 
 function retainNavigation() {
   const hash = navigationHash();
-  try { sessionStorage.setItem(navigationKey, hash.slice(1)); } catch { /* Direct links still work when storage is unavailable. */ }
+  try {
+    sessionStorage.setItem(navigationKey, hash.slice(1));
+  } catch {
+    /* Direct links still work when storage is unavailable. */
+  }
   window.history.replaceState(null, "", hash);
   document.querySelectorAll('a[href^="#"]').forEach((link) => {
     const view = link.getAttribute("href").slice(1).split("?")[0];
@@ -118,8 +178,12 @@ function setMode(nextMode) {
   elements.signupTab.classList.toggle("active", !login);
   elements.loginTab.setAttribute("aria-selected", String(login));
   elements.signupTab.setAttribute("aria-selected", String(!login));
-  elements.formTitle.textContent = login ? "Welcome back" : "Create your account";
-  elements.formSubtitle.textContent = login ? "Log in to continue to PyBudget." : "Start with a secure PyBudget account.";
+  elements.formTitle.textContent = login
+    ? "Welcome back"
+    : "Create your account";
+  elements.formSubtitle.textContent = login
+    ? "Log in to continue to PyBudget."
+    : "Start with a secure PyBudget account.";
   elements.submitButton.textContent = login ? "Log in" : "Create account";
   elements.password.autocomplete = login ? "current-password" : "new-password";
   elements.resetButton.hidden = !login;
@@ -127,11 +191,22 @@ function setMode(nextMode) {
 }
 
 function formatMoney(cents) {
-  return new Intl.NumberFormat("en-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
+  const value = BigInt(cents),
+    absolute = value < 0n ? -value : value;
+  return (
+    (value < 0n ? "-" : "") +
+    "€" +
+    (absolute / 100n).toLocaleString("en-DE") +
+    "," +
+    String(absolute % 100n).padStart(2, "0")
+  );
 }
 
 function formatDate(transaction) {
-  const value = transaction.booking_date || transaction.transaction_date || transaction.value_date;
+  const value =
+    transaction.transaction_date ||
+    transaction.booking_date ||
+    transaction.value_date;
   if (!value) return "Pending";
   return new Intl.DateTimeFormat("en-GB").format(new Date(`${value}T00:00:00`));
 }
@@ -139,7 +214,11 @@ function formatDate(transaction) {
 async function loadTestField(user) {
   elements.testField.value = "";
   clearMessage(elements.dataMessage);
-  const { data, error } = await client.from("user_test_data").select("value").eq("user_id", user.id).maybeSingle();
+  const { data, error } = await client
+    .from("user_test_data")
+    .select("value")
+    .eq("user_id", user.id)
+    .maybeSingle();
   if (error) return showMessage(elements.dataMessage, error.message);
   elements.testField.value = data?.value || "";
 }
@@ -188,7 +267,9 @@ function accountCard(account) {
   toggle.className = "compact secondary";
   toggle.type = "button";
   toggle.textContent = account.is_active ? "Archive" : "Reactivate";
-  toggle.addEventListener("click", () => updateAccount(account.id, { is_active: !account.is_active }));
+  toggle.addEventListener("click", () =>
+    updateAccount(account.id, { is_active: !account.is_active }),
+  );
   actions.append(save, toggle);
   form.append(heading, label, input, actions);
   form.addEventListener("submit", (event) => {
@@ -206,38 +287,76 @@ async function loadAccounts() {
   elements.accountsList.setAttribute("aria-busy", "true");
   showMessage(elements.accountsMessage, "Loading accounts…", "loading");
   try {
-    const { data, error } = await client.from("bank_accounts")
-      .select("id,source,external_key,display_name,currency,is_active,created_at,updated_at")
-      .order("is_active", { ascending: false }).order("created_at", { ascending: true });
+    const { data, error } = await client
+      .from("bank_accounts")
+      .select(
+        "id,source,external_key,display_name,currency,is_active,created_at,updated_at",
+      )
+      .order("is_active", { ascending: false })
+      .order("created_at", { ascending: true });
     if (version !== sessionVersion || request !== accountsRequest) return;
     if (error) throw error;
     clearMessage(elements.accountsMessage);
     elements.accountsList.replaceChildren(...data.map(accountCard));
-    if (!data.length) showMessage(elements.accountsMessage, "No accounts detected yet. Import a bank CSV below to create them.", "empty");
+    ledgerControls.account.replaceChildren(
+      new Option("All accounts", ""),
+      ...data.map(
+        (a) =>
+          new Option(a.display_name + (a.is_active ? "" : " (archived)"), a.id),
+      ),
+    );
+    ledgerControls.account.value = navigation.account;
+    if (!data.length)
+      showMessage(
+        elements.accountsMessage,
+        "No accounts detected yet. Import a bank CSV below to create them.",
+        "empty",
+      );
   } catch {
-    if (version === sessionVersion && request === accountsRequest) showMessage(elements.accountsMessage, "Could not load accounts. Check your connection and try Refresh.");
+    if (version === sessionVersion && request === accountsRequest)
+      showMessage(
+        elements.accountsMessage,
+        "Could not load accounts. Check your connection and try Refresh.",
+      );
   } finally {
-    if (version === sessionVersion && request === accountsRequest) elements.accountsList.setAttribute("aria-busy", "false");
+    if (version === sessionVersion && request === accountsRequest)
+      elements.accountsList.setAttribute("aria-busy", "false");
   }
 }
 
 async function updateAccount(accountId, changes) {
   if (!client || !currentUser) return;
-  if ("display_name" in changes && !changes.display_name) return showMessage(elements.accountsMessage, "Account name cannot be empty.");
+  if ("display_name" in changes && !changes.display_name)
+    return showMessage(
+      elements.accountsMessage,
+      "Account name cannot be empty.",
+    );
   const version = sessionVersion;
   const buttons = elements.accountsList.querySelectorAll("button");
-  buttons.forEach((button) => { button.disabled = true; });
+  buttons.forEach((button) => {
+    button.disabled = true;
+  });
   showMessage(elements.accountsMessage, "Updating account…", "loading");
   try {
-    const { error } = await client.from("bank_accounts")
-      .update({ ...changes, updated_at: new Date().toISOString() }).eq("id", accountId);
+    const { error } = await client
+      .from("bank_accounts")
+      .update({ ...changes, updated_at: new Date().toISOString() })
+      .eq("id", accountId);
     if (version !== sessionVersion) return;
     if (error) throw error;
     await loadAccounts();
     await loadTransactions();
   } catch {
-    if (version === sessionVersion) showMessage(elements.accountsMessage, "Could not update the account. Check your connection and try again.");
-  } finally { buttons.forEach((button) => { button.disabled = false; }); }
+    if (version === sessionVersion)
+      showMessage(
+        elements.accountsMessage,
+        "Could not update the account. Check your connection and try again.",
+      );
+  } finally {
+    buttons.forEach((button) => {
+      button.disabled = false;
+    });
+  }
 }
 
 async function loadTransactions() {
@@ -248,63 +367,175 @@ async function loadTransactions() {
   transactionState = "loading";
   renderTransactions();
   try {
-    const { data, error } = await client.from("transactions")
-      .select("id,status,amount_cent,currency,booking_date,value_date,transaction_date,partner,description,bank_accounts(display_name)")
-      .order("booking_date", { ascending: false, nullsFirst: true }).limit(200);
+    const { data, error } = await client.rpc("read_transaction_ledger", {
+      p_offset: ledgerOffset,
+      p_limit: pageSize,
+      p_status: navigation.status,
+      p_search: navigation.search,
+      p_account: navigation.account || null,
+      p_start: navigation.start || null,
+      p_end: navigation.end || null,
+      p_direction: navigation.direction,
+    });
     if (version !== sessionVersion || request !== transactionsRequest) return;
     if (error) throw error;
-    transactions = data;
+    ledger = data;
+    if (ledgerOffset && ledgerOffset >= data.count) {
+      ledgerOffset = 0;
+      return loadTransactions();
+    }
+    transactions = data.rows;
     transactionState = "ready";
   } catch {
     if (version !== sessionVersion || request !== transactionsRequest) return;
     transactionState = "error";
-    transactionError = "Could not load transactions. Check your connection and try Refresh.";
+    transactionError =
+      "Could not load transactions. Check your connection and try Refresh.";
   }
   renderTransactions();
 }
 
 function renderTransactions() {
   clearMessage(elements.transactionsMessage);
-  const filtered = transactions.filter((transaction) =>
-    (navigation.status === "all" || transaction.status === navigation.status) &&
-    [transaction.partner, transaction.description, transaction.bank_accounts?.display_name]
-      .some((value) => (value || "").toLowerCase().includes(navigation.search.toLowerCase()))
-  );
-  let booked = 0;
-  let pending = 0;
+  const filtered = transactions;
+  const booked = transactionState === "ready" ? BigInt(ledger.booked) : 0n,
+    pending = transactionState === "ready" ? BigInt(ledger.pending) : 0n;
   const rows = filtered.map((transaction) => {
-    if (transaction.status === "pending") pending += Number(transaction.amount_cent);
-    if (transaction.status === "booked") booked += Number(transaction.amount_cent);
     const row = document.createElement("tr");
-    row.appendChild(makeCell(formatDate(transaction)));
-    row.appendChild(makeCell(transaction.partner || transaction.description || "Unknown"));
-    row.appendChild(makeCell(transaction.bank_accounts?.display_name || "Account"));
+    const isNew =
+      recentBatch &&
+      (transaction.imports || []).some(
+        (i) =>
+          i.batch_id === recentBatch &&
+          (i.observed_at === transaction.first_seen_at ||
+            i.observed_at === transaction.booked_at),
+      );
+    if (isNew) {
+      row.classList.add("new-transaction");
+      row.setAttribute("aria-label", "New or updated transaction");
+    }
+
+    const dateCell = makeCell(formatDate(transaction));
+    if (isNew) {
+      const dot = document.createElement("span");
+      dot.className = "new-dot";
+      dot.title = "New or updated in your latest import";
+      dot.setAttribute("aria-label", dot.title);
+      dateCell.append(dot);
+    }
+    row.appendChild(dateCell);
+    row.appendChild(
+      makeCell(transaction.partner || transaction.description || "Unknown"),
+    );
+    row.appendChild(makeCell(transaction.account_name || "Account"));
     const statusCell = document.createElement("td");
     const badge = document.createElement("span");
     badge.className = `status-badge ${transaction.status}`;
     badge.textContent = transaction.status;
     statusCell.appendChild(badge);
     row.appendChild(statusCell);
-    row.appendChild(makeCell(formatMoney(Number(transaction.amount_cent)), `amount ${transaction.amount_cent >= 0 ? "positive" : "negative"}`));
+    row.appendChild(
+      makeCell(
+        formatMoney(transaction.amount_cent),
+        `amount ${transaction.amount_cent >= 0 ? "positive" : "negative"}`,
+      ),
+    );
+    const cell = document.createElement("td"),
+      details = document.createElement("details"),
+      summary = document.createElement("summary"),
+      info = document.createElement("p");
+    summary.textContent = "Details";
+    info.textContent =
+      "ID: " +
+      transaction.id +
+      " · Reference: " +
+      (transaction.bank_reference || "None") +
+      " · Booking: " +
+      (transaction.booking_date || "None") +
+      " · Value: " +
+      (transaction.value_date || "None") +
+      " · Purchase: " +
+      (transaction.transaction_date || "None") +
+      " · First seen: " +
+      (transaction.first_seen_at || "Unknown") +
+      " · Last seen: " +
+      (transaction.last_seen_at || "Unknown") +
+      " · " +
+      (transaction.description || "");
+    const provenance = document.createElement("p");
+    provenance.textContent =
+      "Imports: " +
+      (transaction.imports || [])
+        .map(
+          (i) =>
+            (i.file_name || "File") + " (" + i.batch_id + ", " + i.status + ")",
+        )
+        .join("; ");
+    details.append(summary, info, provenance);
+    cell.append(details);
+    row.append(cell);
     return row;
   });
   elements.transactionsBody.replaceChildren(...rows);
   elements.bookedTotal.textContent = formatMoney(booked);
   elements.pendingTotal.textContent = formatMoney(pending);
   elements.combinedTotal.textContent = formatMoney(booked + pending);
-  if (transactionState === "loading") showMessage(elements.transactionsMessage, "Loading transactions…", "loading");
-  else if (transactionState === "error") showMessage(elements.transactionsMessage, transactionError);
-  else if (!transactions.length) showMessage(elements.transactionsMessage, "No imported transactions yet. Import a bank CSV in Setup.", "empty");
-  else if (!filtered.length) showMessage(elements.transactionsMessage, "No transactions match these filters. Change the status or search text.", "empty");
-  elements.transactionsView.setAttribute("aria-busy", String(transactionState === "loading"));
+  ledgerPage.textContent =
+    transactionState === "ready"
+      ? (ledger.count ? ledgerOffset + 1 : 0) +
+        "–" +
+        (ledgerOffset + filtered.length) +
+        " of " +
+        ledger.count
+      : "—";
+  previousPage.disabled = transactionState !== "ready" || !ledgerOffset;
+  nextPage.disabled =
+    transactionState !== "ready" || ledgerOffset + pageSize >= ledger.count;
+  if (transactionState === "loading")
+    showMessage(
+      elements.transactionsMessage,
+      "Loading transactions…",
+      "loading",
+    );
+  else if (transactionState === "error")
+    showMessage(elements.transactionsMessage, transactionError);
+  else if (!transactions.length)
+    showMessage(
+      elements.transactionsMessage,
+      navigation.search ||
+        navigation.status !== "all" ||
+        navigation.account ||
+        navigation.start ||
+        navigation.end ||
+        navigation.direction !== "all"
+        ? "No transactions match these filters."
+        : "No imported transactions yet. Use + to import a bank CSV.",
+      "empty",
+    );
+  else if (ledger.review_count)
+    showMessage(
+      elements.transactionsMessage,
+      ledger.review_count +
+        " booked transactions await reconciliation in the import window and are excluded from these totals. Totals remain provisional.",
+      "warning",
+    );
+  reviewImports.hidden = !ledger.review_count || transactionState !== "ready";
+  elements.transactionsView.setAttribute(
+    "aria-busy",
+    String(transactionState === "loading"),
+  );
 }
 
 function showFeature({ focus = false, load = true } = {}) {
   elements.transactionStatus.value = navigation.status;
   elements.transactionSearch.value = navigation.search;
+  for (const k of Object.keys(ledgerControls))
+    ledgerControls[k].value = navigation[k];
   elements.reportVariant.value = navigation.report;
   elements.reportMessage.textContent = `${navigation.report === "settlement" ? "Settlement" : "Expense summary"} is not available yet. This report is planned.`;
-  Object.entries(views).forEach(([view, id]) => { document.getElementById(id).hidden = view !== navigation.view; });
+  Object.entries(views).forEach(([view, id]) => {
+    document.getElementById(id).hidden = view !== navigation.view;
+  });
   elements.navigationLinks.forEach((link) => {
     const active = link.dataset.view === navigation.view;
     link.classList.toggle("active", active);
@@ -313,9 +544,13 @@ function showFeature({ focus = false, load = true } = {}) {
   });
   retainNavigation();
   document.title = `${navigation.view[0].toUpperCase()}${navigation.view.slice(1)} · PyBudget`;
-  if (focus) document.querySelector(`#${views[navigation.view]} h2[tabindex]`).focus();
-  if (load && navigation.view === "setup") loadAccounts();
-  if (load && navigation.view === "transactions") loadTransactions();
+  if (focus)
+    document.querySelector(`#${views[navigation.view]} h2[tabindex]`).focus();
+  if (load && navigation.view === "accounts") loadAccounts();
+  if (load && navigation.view === "transactions") {
+    loadAccounts();
+    loadTransactions();
+  }
 }
 
 function renderSession(session) {
@@ -328,10 +563,27 @@ function renderSession(session) {
   elements.userEmail.textContent = currentUser?.email || "";
   if (previousId !== currentUser?.id) {
     sessionVersion++;
+    importBusy = false;
+    recentBatch = null;
+    if (importDialog.open) importDialog.close();
+    closeImportButton.disabled = false;
+    elements.csvFile.disabled = false;
+    clearMessage(importResult);
     transactions = [];
+    ledgerOffset = 0;
+    reviewCandidates = [];
+    ledgerControls.account.replaceChildren(new Option("All accounts", ""));
+    if (previousId) {
+      navigation.account = "";
+      navigation.start = "";
+      navigation.end = "";
+      navigation.direction = "all";
+    }
     transactionState = "idle";
     elements.transactionsBody.replaceChildren();
+    renderTransactions();
     elements.accountsList.replaceChildren();
+    elements.reconciliationList.replaceChildren();
     elements.csvFile.value = "";
     parsedImport = null;
     elements.importPreview.hidden = true;
@@ -340,32 +592,46 @@ function renderSession(session) {
     elements.testField.value = "";
   }
   if (currentUser) {
-    if (previousId !== currentUser.id) loadTestField(currentUser).catch(() => {});
+    if (previousId !== currentUser.id)
+      loadTestField(currentUser).catch(() => {});
     showFeature({ load: previousId !== currentUser.id });
-  }
-  else document.title = "Log in · PyBudget";
+  } else document.title = "Log in · PyBudget";
 }
 
 async function handleSubmit(event) {
   event.preventDefault();
   clearMessage(elements.authMessage);
-  if (!client) return showMessage(elements.authMessage, "Supabase is not configured yet.");
+  if (!client)
+    return showMessage(elements.authMessage, "Supabase is not configured yet.");
   elements.submitButton.disabled = true;
-  const credentials = { email: elements.email.value.trim(), password: elements.password.value };
+  const credentials = {
+    email: elements.email.value.trim(),
+    password: elements.password.value,
+  };
   try {
-    const result = mode === "login"
-      ? await client.auth.signInWithPassword(credentials)
-      : await client.auth.signUp({
-          ...credentials,
-          options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` }
-        });
+    const result =
+      mode === "login"
+        ? await client.auth.signInWithPassword(credentials)
+        : await client.auth.signUp({
+            ...credentials,
+            options: {
+              emailRedirectTo: `${window.location.origin}${window.location.pathname}`,
+            },
+          });
     if (result.error) throw result.error;
     if (mode === "signup" && !result.data.session) {
-      showMessage(elements.authMessage, "Account created. Check your email to confirm it, then log in.", "success");
+      showMessage(
+        elements.authMessage,
+        "Account created. Check your email to confirm it, then log in.",
+        "success",
+      );
       elements.authForm.reset();
     } else renderSession(result.data.session);
   } catch (error) {
-    showMessage(elements.authMessage, error.message || "Authentication failed.");
+    showMessage(
+      elements.authMessage,
+      error.message || "Authentication failed.",
+    );
   } finally {
     elements.submitButton.disabled = false;
   }
@@ -374,15 +640,21 @@ async function handleSubmit(event) {
 async function resetPassword() {
   clearMessage(elements.authMessage);
   const email = elements.email.value.trim();
-  if (!client) return showMessage(elements.authMessage, "Supabase is not configured yet.");
-  if (!email) return showMessage(elements.authMessage, "Enter your email address first.");
+  if (!client)
+    return showMessage(elements.authMessage, "Supabase is not configured yet.");
+  if (!email)
+    return showMessage(elements.authMessage, "Enter your email address first.");
   const redirectTo = `${window.location.origin}${window.location.pathname}`;
-  const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
+  const { error } = await client.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
   if (error) return showMessage(elements.authMessage, error.message);
   showMessage(elements.authMessage, "Password-reset email sent.", "success");
 }
 
 async function handleFileSelection() {
+  const request = ++fileRequest,
+    version = sessionVersion;
   parsedImport = null;
   elements.importButton.disabled = true;
   elements.importPreview.hidden = true;
@@ -390,7 +662,14 @@ async function handleFileSelection() {
   const file = elements.csvFile.files?.[0];
   if (!file) return;
   try {
-    parsedImport = await window.PyBudgetImporter.parseComdirectFile(file);
+    const parsed = await window.PyBudgetImporter.parseComdirectFile(file);
+    if (
+      request !== fileRequest ||
+      version !== sessionVersion ||
+      !importDialog.open
+    )
+      return;
+    parsedImport = parsed;
     elements.previewAccounts.textContent = parsedImport.accounts.length;
     elements.previewTransactions.textContent = parsedImport.transaction_count;
     elements.previewPending.textContent = parsedImport.pending_count;
@@ -400,39 +679,286 @@ async function handleFileSelection() {
       throw new Error("No supported Comdirect transactions were found.");
     }
     elements.importButton.disabled = false;
-    showMessage(elements.importMessage, `Ready to import ${parsedImport.transaction_count} transactions.`, "success");
+    showMessage(
+      elements.importMessage,
+      `Ready to import ${parsedImport.transaction_count} transactions.`,
+      "success",
+    );
   } catch (error) {
+    if (
+      request !== fileRequest ||
+      version !== sessionVersion ||
+      !importDialog.open
+    )
+      return;
     parsedImport = null;
-    showMessage(elements.importMessage, error.message || "Could not parse this CSV.");
+    showMessage(
+      elements.importMessage,
+      error.message || "Could not parse this CSV.",
+    );
+  }
+}
+
+async function resolveReview(reviewId, action, candidateId = null) {
+  if (!client || !currentUser) return;
+  const version = sessionVersion,
+    buttons = elements.reconciliationList.querySelectorAll("button");
+  buttons.forEach((b) => {
+    b.disabled = true;
+  });
+  try {
+    const { error } = await client.rpc("resolve_reconciliation_review", {
+      p_review_id: reviewId,
+      p_action: action,
+      p_candidate_transaction_id: candidateId,
+    });
+    if (error) throw error;
+    if (version !== sessionVersion) return;
+    await Promise.all([loadReconciliationReviews(), loadTransactions()]);
+  } catch {
+    if (version === sessionVersion)
+      showMessage(
+        elements.reconciliationMessage,
+        "Could not resolve this transaction. Refresh and try again.",
+      );
+  } finally {
+    buttons.forEach((b) => {
+      b.disabled = false;
+    });
+  }
+}
+
+function reconciliationCard(review) {
+  const card = document.createElement("article");
+  card.className = "account-card";
+  const payload = review.booked_payload || {};
+  const heading = document.createElement("div");
+  heading.className = "account-card-heading";
+  const info = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent =
+    payload.partner || payload.description || "Booked transaction";
+  const detail = document.createElement("small");
+  detail.textContent = [
+    payload.transaction_date || payload.booking_date || "Unknown date",
+    formatMoney(Number(payload.amount_cent || 0)),
+  ].join(" · ");
+  info.append(title, detail);
+  heading.append(info);
+  card.append(heading);
+
+  const candidates = Array.isArray(review.candidate_transaction_ids)
+    ? review.candidate_transaction_ids
+    : [];
+  for (const id of candidates) {
+    const tx = reviewCandidates.find((item) => item.id === id);
+    const row = document.createElement("div");
+    row.className = "review-candidate";
+    const text = document.createElement("span");
+    text.textContent = tx
+      ? [
+          formatDate(tx),
+          tx.partner || tx.description || "Pending transaction",
+          formatMoney(tx.amount_cent),
+        ].join(" · ")
+      : "Pending candidate";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "compact secondary";
+    button.textContent = "Same transaction";
+    button.addEventListener("click", () =>
+      resolveReview(review.id, "same", id),
+    );
+    row.append(text, button);
+    card.append(row);
+  }
+  const separate = document.createElement("button");
+  separate.type = "button";
+  separate.className = "compact secondary";
+  separate.textContent = "Separate transaction";
+  separate.addEventListener("click", () =>
+    resolveReview(review.id, "separate"),
+  );
+  card.append(separate);
+  return card;
+}
+
+async function loadReconciliationReviews() {
+  if (!client || !currentUser) return;
+  const version = sessionVersion,
+    request = ++reviewRequest;
+  elements.reconciliationList.replaceChildren();
+  showMessage(
+    elements.reconciliationMessage,
+    "Loading reconciliation reviews…",
+    "loading",
+  );
+  try {
+    let reviews = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await client
+        .from("reconciliation_reviews")
+        .select("id,booked_payload,candidate_transaction_ids,status,created_at")
+        .eq("status", "open")
+        .order("created_at")
+        .order("id")
+        .range(offset, offset + 499);
+      if (error) throw error;
+      reviews.push(...data);
+      if (data.length < 500) break;
+    }
+    const ids = [
+        ...new Set(reviews.flatMap((r) => r.candidate_transaction_ids)),
+      ],
+      candidates = [];
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      const { data, error } = await client
+        .from("transactions")
+        .select(
+          "id,status,amount_cent,booking_date,value_date,transaction_date,partner,description",
+        )
+        .in("id", ids.slice(offset, offset + 100));
+      if (error) throw error;
+      candidates.push(...data);
+    }
+    if (version !== sessionVersion || request !== reviewRequest) return;
+    reviewCandidates = candidates;
+    elements.reconciliationList.replaceChildren(
+      ...reviews.map(reconciliationCard),
+    );
+    showMessage(
+      elements.reconciliationMessage,
+      reviews.length
+        ? reviews.length + " transactions need review."
+        : "No transactions need review.",
+      reviews.length ? "warning" : "empty",
+    );
+  } catch {
+    if (version === sessionVersion && request === reviewRequest)
+      showMessage(
+        elements.reconciliationMessage,
+        "Could not load reconciliation reviews. Refresh and try again.",
+      );
   }
 }
 
 async function importTransactions() {
   if (!client || !currentUser || !parsedImport) return;
   const version = sessionVersion;
+  importBusy = true;
+  closeImportButton.disabled = true;
+  elements.csvFile.disabled = true;
   elements.importButton.disabled = true;
-  showMessage(elements.importMessage, "Importing and reconciling transactions…", "loading");
+  showMessage(
+    elements.importMessage,
+    "Importing and reconciling transactions…",
+    "loading",
+  );
   try {
     const { data, error } = await client.rpc("import_comdirect_transactions", {
       p_file_name: parsedImport.file_name,
       p_file_sha256: parsedImport.file_sha256,
       p_period_start: parsedImport.period_start,
       p_period_end: parsedImport.period_end,
-      p_accounts: parsedImport.accounts
+      p_accounts: parsedImport.accounts,
     });
     if (version !== sessionVersion) return;
     if (error) throw error;
-    const prefix = data.already_imported ? "This exact file was already imported." : "Import complete.";
-    showMessage(elements.importMessage,
-      prefix + " Added " + data.inserted + ", reconciled " + data.reconciled + ", skipped " + data.duplicates + ", rejected " + data.rejected + ".", "success");
-    await loadTransactions();
-    await loadAccounts();
+    const prefix = data.already_imported
+      ? "This exact file was already imported."
+      : "Import complete.";
+    const reviewCount = Number(data.needs_review || 0);
+    const reviewText = reviewCount ? ", needs review " + reviewCount : "";
+    const rejectionText = (data.errors || [])
+      .slice(0, 5)
+      .map((e) => "Row " + e.row + ": " + e.reason)
+      .join("; ");
+    showMessage(
+      elements.importMessage,
+      prefix +
+        " Added " +
+        data.inserted +
+        ", reconciled " +
+        data.reconciled +
+        ", skipped " +
+        data.duplicates +
+        ", rejected " +
+        data.rejected +
+        reviewText +
+        "." +
+        (rejectionText ? " " + rejectionText : ""),
+      reviewCount ? "warning" : "success",
+    );
+    recentBatch = data.already_imported ? null : data.batch_id;
+    showMessage(
+      importResult,
+      elements.importMessage.textContent +
+        (recentBatch
+          ? " New and updated transactions are marked with a dot."
+          : ""),
+      reviewCount || data.rejected ? "warning" : "success",
+    );
+    navigation.view = "transactions";
+    navigation.status = "all";
+    navigation.search = "";
+    navigation.account = "";
+    navigation.start = "";
+    navigation.end = "";
+    navigation.direction = "all";
+    ledgerOffset = 0;
+    importBusy = false;
+    importDialog.close();
+    showFeature({ focus: true, load: false });
+    await Promise.all([loadTransactions(), loadAccounts()]);
   } catch {
-    if (version === sessionVersion) showMessage(elements.importMessage, "Could not import transactions. Check your connection and try again. Retrying the same file is safe.");
+    if (version === sessionVersion)
+      showMessage(
+        elements.importMessage,
+        "Could not import transactions. Check your connection and try again. Retrying the same file is safe.",
+      );
   } finally {
-    if (version === sessionVersion) elements.importButton.disabled = !parsedImport;
+    if (version === sessionVersion) {
+      importBusy = false;
+      closeImportButton.disabled = false;
+      elements.csvFile.disabled = false;
+      elements.importButton.disabled = !parsedImport;
+    }
   }
 }
+
+function resetImportWindow() {
+  fileRequest++;
+  parsedImport = null;
+  elements.csvFile.value = "";
+  elements.importPreview.hidden = true;
+  elements.importButton.disabled = true;
+  clearMessage(elements.importMessage);
+}
+function openImportWindow() {
+  if (!currentUser || importBusy) return;
+  navigation.view = "transactions";
+  showFeature({ load: false });
+  loadAccounts();
+  loadTransactions();
+  resetImportWindow();
+  importDialog.showModal();
+  loadReconciliationReviews();
+  closeImportButton.focus();
+}
+document
+  .querySelectorAll("[data-open-import]")
+  .forEach((button) => button.addEventListener("click", openImportWindow));
+closeImportButton.addEventListener("click", () => {
+  if (!importBusy) importDialog.close();
+});
+importDialog.addEventListener("cancel", (event) => {
+  if (importBusy) event.preventDefault();
+});
+importDialog.addEventListener("close", () => {
+  resetImportWindow();
+  if (currentUser && navigation.view === "transactions")
+    document.querySelector("#transactions-title").focus();
+});
 
 elements.loginTab.addEventListener("click", () => setMode("login"));
 elements.signupTab.addEventListener("click", () => setMode("signup"));
@@ -440,14 +966,28 @@ elements.authForm.addEventListener("submit", handleSubmit);
 elements.resetButton.addEventListener("click", resetPassword);
 window.addEventListener("hashchange", () => {
   navigation = readNavigation();
+  ledgerOffset = 0;
   if (currentUser) showFeature({ focus: true });
 });
 function updateFilters() {
   navigation.status = elements.transactionStatus.value;
   navigation.search = elements.transactionSearch.value.slice(0, 120);
+  for (const k of Object.keys(ledgerControls))
+    navigation[k] = ledgerControls[k].value;
+  ledgerOffset = 0;
   retainNavigation();
-  renderTransactions();
+  loadTransactions();
 }
+for (const c of Object.values(ledgerControls))
+  c.addEventListener("change", updateFilters);
+previousPage.addEventListener("click", () => {
+  ledgerOffset = Math.max(0, ledgerOffset - pageSize);
+  loadTransactions();
+});
+nextPage.addEventListener("click", () => {
+  ledgerOffset += pageSize;
+  loadTransactions();
+});
 elements.transactionStatus.addEventListener("change", updateFilters);
 elements.transactionSearch.addEventListener("input", updateFilters);
 elements.reportVariant.addEventListener("change", () => {
@@ -458,14 +998,22 @@ elements.refreshAccounts.addEventListener("click", loadAccounts);
 elements.csvFile.addEventListener("change", handleFileSelection);
 elements.importButton.addEventListener("click", importTransactions);
 elements.refreshTransactions.addEventListener("click", loadTransactions);
+elements.refreshReconciliation.addEventListener(
+  "click",
+  loadReconciliationReviews,
+);
 elements.testFieldForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!client || !currentUser) return;
   elements.saveFieldButton.disabled = true;
   clearMessage(elements.dataMessage);
   const { error } = await client.from("user_test_data").upsert(
-    { user_id: currentUser.id, value: elements.testField.value, updated_at: new Date().toISOString() },
-    { onConflict: "user_id" }
+    {
+      user_id: currentUser.id,
+      value: elements.testField.value,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
   );
   elements.saveFieldButton.disabled = false;
   if (error) return showMessage(elements.dataMessage, error.message);
@@ -483,7 +1031,9 @@ elements.logoutButton.addEventListener("click", async () => {
     renderSession(null);
   } catch {
     window.alert("Could not log out. Check your connection and try again.");
-  } finally { elements.logoutButton.disabled = false; }
+  } finally {
+    elements.logoutButton.disabled = false;
+  }
 });
 
 if (!configured) {

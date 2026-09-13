@@ -379,3 +379,7 @@ Example result:
 8. Build frontend picker, preview, and result UI.
 9. Run overlapping-export and cross-user tests.
 10. Plan the transaction-list feature separately.
+
+## Issue 6/7 development acceptance — 2026-09-13
+
+See [release evidence and boundaries](ISSUES_6_7_RELEASE.md). Import/reconciliation and complete ledger behavior have passed automated frontend and live development database acceptance. The older checklists above predate these checks; category/budget/balance/report work and #31 remain separate. Production release acceptance is tracked in the promotion PR.

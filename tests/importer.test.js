@@ -139,3 +139,12 @@ for (const columns of reviewLayouts) {
   assert.equal(summaries.transaction_count, 1);
 }
 console.log("Review regression tests passed");
+
+// Explicitly empty optional reference cells still occupy their CSV column.
+{
+  const fixture = ['"Umsätze Girokonto";','"Buchungstag";"Wertstellung (Valuta)";"Vorgang";"Buchungstext";"Umsatz in EUR";"Referenz";', '"";"01.05.2026";"Lastschrift / Belastung";"SYNTHETIC SHOP";"-12,34";"";', '"";"01.05.2026";"Lastschrift / Belastung";"SYNTHETIC SHOP";"-12,34";"";'].join('\r\n');
+  const result = importer.parseComdirectText(fixture);
+  assert.equal(result.errors.length,0);
+  assert.equal(result.transaction_count,2);
+  assert.notEqual(result.accounts[0].transactions[0].fallback_fingerprint,result.accounts[0].transactions[1].fallback_fingerprint);
+}
