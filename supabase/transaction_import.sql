@@ -30,6 +30,9 @@ create table if not exists public.import_batches (
   unique (user_id, file_sha256)
 );
 
+alter table public.import_batches
+  add column if not exists review_count integer not null default 0;
+
 create table if not exists public.transactions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
