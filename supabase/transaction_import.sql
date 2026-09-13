@@ -25,9 +25,13 @@ create table if not exists public.import_batches (
   duplicate_count integer not null default 0,
   reconciled_count integer not null default 0,
   rejected_count integer not null default 0,
+  review_count integer not null default 0,
   created_at timestamptz not null default now(),
   unique (user_id, file_sha256)
 );
+
+alter table public.import_batches
+  add column if not exists review_count integer not null default 0;
 
 create table if not exists public.transactions (
   id uuid primary key default gen_random_uuid(),
@@ -70,6 +74,21 @@ create unique index if not exists transactions_pending_fallback_unique
 create index if not exists transactions_user_date_idx
   on public.transactions (user_id, booking_date desc);
 
+create table if not exists public.reconciliation_reviews (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  import_batch_id uuid not null references public.import_batches(id) on delete cascade,
+  account_id uuid not null references public.bank_accounts(id) on delete cascade,
+  source_row_sequence integer not null,
+  booked_payload jsonb not null,
+  candidate_transaction_ids uuid[] not null,
+  status text not null default 'open' check (status in ('open', 'resolved_same', 'resolved_separate')),
+  resolved_transaction_id uuid references public.transactions(id) on delete set null,
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz,
+  unique (import_batch_id, account_id, source_row_sequence)
+);
+
 create table if not exists public.transaction_observations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -88,6 +107,7 @@ alter table public.bank_accounts enable row level security;
 alter table public.import_batches enable row level security;
 alter table public.transactions enable row level security;
 alter table public.transaction_observations enable row level security;
+alter table public.reconciliation_reviews enable row level security;
 
 drop policy if exists "Users read own bank accounts" on public.bank_accounts;
 create policy "Users read own bank accounts" on public.bank_accounts
@@ -107,6 +127,10 @@ drop policy if exists "Users read own transactions" on public.transactions;
 create policy "Users read own transactions" on public.transactions
   for select to authenticated using ((select auth.uid()) = user_id);
 
+drop policy if exists "Users read own reconciliation reviews" on public.reconciliation_reviews;
+create policy "Users read own reconciliation reviews" on public.reconciliation_reviews
+  for select to authenticated using ((select auth.uid()) = user_id);
+
 drop policy if exists "Users read own observations" on public.transaction_observations;
 create policy "Users read own observations" on public.transaction_observations
   for select to authenticated using ((select auth.uid()) = user_id);
@@ -115,11 +139,13 @@ revoke all on public.bank_accounts from anon, authenticated;
 revoke all on public.import_batches from anon, authenticated;
 revoke all on public.transactions from anon, authenticated;
 revoke all on public.transaction_observations from anon, authenticated;
+revoke all on public.reconciliation_reviews from anon, authenticated;
 grant select on public.bank_accounts to authenticated;
 grant update (display_name, is_active, updated_at) on public.bank_accounts to authenticated;
 grant select on public.import_batches to authenticated;
 grant select on public.transactions to authenticated;
 grant select on public.transaction_observations to authenticated;
+grant select on public.reconciliation_reviews to authenticated;
 
 create or replace function public.import_comdirect_transactions(
   p_file_name text,
@@ -147,6 +173,8 @@ declare
   v_duplicates integer := 0;
   v_reconciled integer := 0;
   v_rejected integer := 0;
+  v_review integer := 0;
+  v_candidate_ids uuid[];
   v_status text;
   v_reference text;
   v_booking_date date;
@@ -185,6 +213,7 @@ begin
       'duplicates', v_existing_batch.duplicate_count,
       'reconciled', v_existing_batch.reconciled_count,
       'rejected', v_existing_batch.rejected_count,
+      'needs_review', v_existing_batch.review_count,
       'errors', '[]'::jsonb
     );
   end if;
@@ -268,8 +297,8 @@ begin
           end if;
 
           if v_pending_id is null then
-            select count(*), (array_agg(id order by created_at))[1]
-              into v_candidate_count, v_pending_id
+            select count(*), array_agg(id order by created_at)
+              into v_candidate_count, v_candidate_ids
             from public.transactions
             where user_id = v_user_id
               and account_id = v_account_id
@@ -281,8 +310,20 @@ begin
                   lower(coalesce(v_tx->>'partner', ''))
               and lower(coalesce(description, '')) =
                   lower(coalesce(v_tx->>'description', ''));
-            if v_candidate_count <> 1 then
-              v_pending_id := null;
+            if v_candidate_count = 1 then
+              v_pending_id := v_candidate_ids[1];
+            elsif v_candidate_count > 1 then
+              insert into public.reconciliation_reviews (
+                user_id, import_batch_id, account_id, source_row_sequence,
+                booked_payload, candidate_transaction_ids
+              ) values (
+                v_user_id, v_batch_id, v_account_id,
+                coalesce((v_tx->>'row_sequence')::integer, v_rows),
+                v_tx, v_candidate_ids
+              )
+              on conflict (import_batch_id, account_id, source_row_sequence) do nothing;
+              v_review := v_review + 1;
+              continue;
             end if;
           end if;
 
@@ -407,7 +448,8 @@ begin
     inserted_count = v_inserted,
     duplicate_count = v_duplicates,
     reconciled_count = v_reconciled,
-    rejected_count = v_rejected
+    rejected_count = v_rejected,
+    review_count = v_review
   where id = v_batch_id;
 
   return jsonb_build_object(
@@ -418,6 +460,7 @@ begin
     'duplicates', v_duplicates,
     'reconciled', v_reconciled,
     'rejected', v_rejected,
+    'needs_review', v_review,
     'errors', '[]'::jsonb
   );
 end;
@@ -425,3 +468,139 @@ $$;
 
 revoke all on function public.import_comdirect_transactions(text, text, date, date, jsonb) from public, anon;
 grant execute on function public.import_comdirect_transactions(text, text, date, date, jsonb) to authenticated;
+
+
+create or replace function public.resolve_reconciliation_review(
+  p_review_id uuid,
+  p_action text,
+  p_candidate_transaction_id uuid default null
+) returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_review public.reconciliation_reviews%rowtype;
+  v_payload jsonb;
+  v_transaction_id uuid;
+  v_account_external_key text;
+  v_reference text;
+  v_amount bigint;
+  v_booking_date date;
+  v_value_date date;
+  v_transaction_date date;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+  if p_action not in ('same', 'separate') then
+    raise exception 'Resolution action must be same or separate';
+  end if;
+
+  select * into v_review
+  from public.reconciliation_reviews
+  where id = p_review_id and user_id = v_user_id
+  for update;
+
+  if not found then
+    raise exception 'Reconciliation review not found';
+  end if;
+  if v_review.status <> 'open' then
+    raise exception 'Reconciliation review is already resolved';
+  end if;
+
+  v_payload := v_review.booked_payload;
+  v_reference := nullif(btrim(v_payload->>'bank_reference'), '');
+  v_amount := (v_payload->>'amount_cent')::bigint;
+  v_booking_date := nullif(v_payload->>'booking_date', '')::date;
+  v_value_date := nullif(v_payload->>'value_date', '')::date;
+  v_transaction_date := nullif(v_payload->>'transaction_date', '')::date;
+
+  select external_key into v_account_external_key
+  from public.bank_accounts
+  where id = v_review.account_id and user_id = v_user_id;
+
+  if p_action = 'same' then
+    if p_candidate_transaction_id is null
+       or not (p_candidate_transaction_id = any(v_review.candidate_transaction_ids)) then
+      raise exception 'A valid candidate transaction is required';
+    end if;
+
+    update public.transactions set
+      status = 'booked',
+      booking_date = v_booking_date,
+      value_date = v_value_date,
+      transaction_date = v_transaction_date,
+      booking_type = nullif(v_payload->>'booking_type', ''),
+      description = nullif(v_payload->>'description', ''),
+      partner = nullif(v_payload->>'partner', ''),
+      bank_reference = v_reference,
+      fallback_fingerprint = v_payload->>'fallback_fingerprint',
+      last_seen_at = now(),
+      booked_at = now(),
+      updated_at = now()
+    where id = p_candidate_transaction_id
+      and user_id = v_user_id
+      and account_id = v_review.account_id
+      and status = 'pending'
+    returning id into v_transaction_id;
+
+    if v_transaction_id is null then
+      raise exception 'Candidate transaction is no longer pending';
+    end if;
+
+    update public.reconciliation_reviews set
+      status = 'resolved_same',
+      resolved_transaction_id = v_transaction_id,
+      resolved_at = now()
+    where id = v_review.id;
+  else
+    insert into public.transactions (
+      user_id, account_id, status, amount_cent, currency,
+      booking_date, value_date, transaction_date, booking_type,
+      description, partner, bank_reference, fallback_fingerprint,
+      booked_at
+    ) values (
+      v_user_id, v_review.account_id, 'booked', v_amount,
+      coalesce(nullif(v_payload->>'currency', ''), 'EUR'),
+      v_booking_date, v_value_date, v_transaction_date,
+      nullif(v_payload->>'booking_type', ''),
+      nullif(v_payload->>'description', ''),
+      nullif(v_payload->>'partner', ''),
+      v_reference,
+      v_payload->>'fallback_fingerprint',
+      now()
+    ) returning id into v_transaction_id;
+
+    update public.reconciliation_reviews set
+      status = 'resolved_separate',
+      resolved_transaction_id = v_transaction_id,
+      resolved_at = now()
+    where id = v_review.id;
+  end if;
+
+  update public.import_batches
+  set review_count = greatest(review_count - 1, 0)
+  where id = v_review.import_batch_id
+    and user_id = v_user_id;
+
+  insert into public.transaction_observations (
+    user_id, import_batch_id, transaction_id, account_external_key,
+    row_sequence, source_status, bank_reference, raw_row
+  ) values (
+    v_user_id, v_review.import_batch_id, v_transaction_id,
+    v_account_external_key, v_review.source_row_sequence,
+    'booked', v_reference, coalesce(v_payload->'raw_row', '{}'::jsonb)
+  ) on conflict do nothing;
+
+  return jsonb_build_object(
+    'review_id', v_review.id,
+    'action', p_action,
+    'transaction_id', v_transaction_id
+  );
+end;
+$$;
+
+revoke all on function public.resolve_reconciliation_review(uuid, text, uuid) from public, anon;
+grant execute on function public.resolve_reconciliation_review(uuid, text, uuid) to authenticated;
