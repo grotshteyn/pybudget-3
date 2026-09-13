@@ -11,7 +11,7 @@ begin
  perform pg_temp.check((result->>'inserted')::int=1,'first import');
  select id,account_id into original,aid from public.transactions where fallback_fingerprint='pending-one';
  result:=public.import_comdirect_transactions('repeat',repeat('a',64),null,null,payload);
- perform pg_temp.check((result->>'already_imported')::boolean,'exact-file retry');
+ perform pg_temp.check((result->>'already_imported')::boolean and (result->>'inserted')::int=0 and (result->>'reconciled')::int=0,'exact-file retry reports no new writes');
  payload:=jsonb_set(payload,'{0,transactions,0,status}','"booked"');
  payload:=jsonb_set(payload,'{0,transactions,0,fallback_fingerprint}','"booked-one"');
  payload:=jsonb_set(payload,'{0,transactions,0,bank_reference}','"ref-one"');
