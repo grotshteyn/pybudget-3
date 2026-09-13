@@ -478,6 +478,8 @@ elements.logoutButton.addEventListener("click", async () => {
       const { error } = await client.auth.signOut();
       if (error) throw error;
     }
+    navigation.search = "";
+    retainNavigation();
     renderSession(null);
   } catch {
     window.alert("Could not log out. Check your connection and try again.");
