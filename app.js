@@ -423,8 +423,11 @@ async function importTransactions() {
     if (version !== sessionVersion) return;
     if (error) throw error;
     const prefix = data.already_imported ? "This exact file was already imported." : "Import complete.";
+    const reviewCount = Number(data.needs_review || 0);
+    const reviewText = reviewCount ? ", needs review " + reviewCount : "";
     showMessage(elements.importMessage,
-      prefix + " Added " + data.inserted + ", reconciled " + data.reconciled + ", skipped " + data.duplicates + ", rejected " + data.rejected + ".", "success");
+      prefix + " Added " + data.inserted + ", reconciled " + data.reconciled + ", skipped " + data.duplicates + ", rejected " + data.rejected + reviewText + ".",
+      reviewCount ? "warning" : "success");
     await loadTransactions();
     await loadAccounts();
   } catch {
