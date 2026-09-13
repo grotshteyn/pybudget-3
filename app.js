@@ -30,7 +30,7 @@ const elements = {
   transactionSearch: document.querySelector("#transaction-search"),
   reportVariant: document.querySelector("#report-variant"),
   reportMessage: document.querySelector("#report-message"),
-  importView: document.querySelector("#import-view"),
+  importView: document.querySelector("#accounts-view"),
   transactionsView: document.querySelector("#transactions-view"),
   refreshAccounts: document.querySelector("#refresh-accounts"),
   accountsList: document.querySelector("#accounts-list"),
@@ -61,6 +61,12 @@ const elements = {
 let mode = "login";
 let currentUser = null;
 let parsedImport = null;
+let importBusy = false,
+  recentBatch = null;
+const importDialog = document.querySelector("#import-dialog"),
+  closeImportButton = document.querySelector("#close-import"),
+  importResult = document.querySelector("#import-result"),
+  reviewImports = document.querySelector("#review-imports");
 let transactions = [];
 let ledger = { count: 0, booked: "0", pending: "0", review_count: 0 },
   ledgerOffset = 0;
@@ -85,17 +91,20 @@ let fileRequest = 0;
 const views = {
   overview: "overview-view",
   transactions: "transactions-view",
-  budget: "budget-view",
   reports: "reports-view",
-  setup: "import-view",
+  accounts: "accounts-view",
 };
 const navigationKey = "pybudget.navigation.v1";
 
 function readNavigation() {
-  let route = window.location.hash.slice(1);
+  const migrateRoute = (value) =>
+    value
+      .replace(/^budget(?=\?|$)/, "overview")
+      .replace(/^setup(?=\?|$)/, "accounts");
+  let route = migrateRoute(window.location.hash.slice(1));
   if (!Object.hasOwn(views, route.split("?")[0])) {
     try {
-      route = sessionStorage.getItem(navigationKey) || "overview";
+      route = migrateRoute(sessionStorage.getItem(navigationKey) || "overview");
     } catch {
       route = "overview";
     }
@@ -393,7 +402,28 @@ function renderTransactions() {
     pending = transactionState === "ready" ? BigInt(ledger.pending) : 0n;
   const rows = filtered.map((transaction) => {
     const row = document.createElement("tr");
-    row.appendChild(makeCell(formatDate(transaction)));
+    const isNew =
+      recentBatch &&
+      (transaction.imports || []).some(
+        (i) =>
+          i.batch_id === recentBatch &&
+          (i.observed_at === transaction.first_seen_at ||
+            i.observed_at === transaction.booked_at),
+      );
+    if (isNew) {
+      row.classList.add("new-transaction");
+      row.setAttribute("aria-label", "New or updated transaction");
+    }
+
+    const dateCell = makeCell(formatDate(transaction));
+    if (isNew) {
+      const dot = document.createElement("span");
+      dot.className = "new-dot";
+      dot.title = "New or updated in your latest import";
+      dot.setAttribute("aria-label", dot.title);
+      dateCell.append(dot);
+    }
+    row.appendChild(dateCell);
     row.appendChild(
       makeCell(transaction.partner || transaction.description || "Unknown"),
     );
@@ -479,16 +509,17 @@ function renderTransactions() {
         navigation.end ||
         navigation.direction !== "all"
         ? "No transactions match these filters."
-        : "No imported transactions yet. Import a bank CSV in Setup.",
+        : "No imported transactions yet. Use + to import a bank CSV.",
       "empty",
     );
   else if (ledger.review_count)
     showMessage(
       elements.transactionsMessage,
       ledger.review_count +
-        " booked transactions await reconciliation in Setup and are excluded from these totals. Totals remain provisional.",
+        " booked transactions await reconciliation in the import window and are excluded from these totals. Totals remain provisional.",
       "warning",
     );
+  reviewImports.hidden = !ledger.review_count || transactionState !== "ready";
   elements.transactionsView.setAttribute(
     "aria-busy",
     String(transactionState === "loading"),
@@ -515,10 +546,7 @@ function showFeature({ focus = false, load = true } = {}) {
   document.title = `${navigation.view[0].toUpperCase()}${navigation.view.slice(1)} · PyBudget`;
   if (focus)
     document.querySelector(`#${views[navigation.view]} h2[tabindex]`).focus();
-  if (load && navigation.view === "setup") {
-    loadAccounts();
-    loadReconciliationReviews();
-  }
+  if (load && navigation.view === "accounts") loadAccounts();
   if (load && navigation.view === "transactions") {
     loadAccounts();
     loadTransactions();
@@ -535,6 +563,12 @@ function renderSession(session) {
   elements.userEmail.textContent = currentUser?.email || "";
   if (previousId !== currentUser?.id) {
     sessionVersion++;
+    importBusy = false;
+    recentBatch = null;
+    if (importDialog.open) importDialog.close();
+    closeImportButton.disabled = false;
+    elements.csvFile.disabled = false;
+    clearMessage(importResult);
     transactions = [];
     ledgerOffset = 0;
     reviewCandidates = [];
@@ -619,6 +653,8 @@ async function resetPassword() {
 }
 
 async function handleFileSelection() {
+  const request = ++fileRequest,
+    version = sessionVersion;
   parsedImport = null;
   elements.importButton.disabled = true;
   elements.importPreview.hidden = true;
@@ -626,7 +662,14 @@ async function handleFileSelection() {
   const file = elements.csvFile.files?.[0];
   if (!file) return;
   try {
-    parsedImport = await window.PyBudgetImporter.parseComdirectFile(file);
+    const parsed = await window.PyBudgetImporter.parseComdirectFile(file);
+    if (
+      request !== fileRequest ||
+      version !== sessionVersion ||
+      !importDialog.open
+    )
+      return;
+    parsedImport = parsed;
     elements.previewAccounts.textContent = parsedImport.accounts.length;
     elements.previewTransactions.textContent = parsedImport.transaction_count;
     elements.previewPending.textContent = parsedImport.pending_count;
@@ -642,6 +685,12 @@ async function handleFileSelection() {
       "success",
     );
   } catch (error) {
+    if (
+      request !== fileRequest ||
+      version !== sessionVersion ||
+      !importDialog.open
+    )
+      return;
     parsedImport = null;
     showMessage(
       elements.importMessage,
@@ -796,6 +845,9 @@ async function loadReconciliationReviews() {
 async function importTransactions() {
   if (!client || !currentUser || !parsedImport) return;
   const version = sessionVersion;
+  importBusy = true;
+  closeImportButton.disabled = true;
+  elements.csvFile.disabled = true;
   elements.importButton.disabled = true;
   showMessage(
     elements.importMessage,
@@ -837,9 +889,27 @@ async function importTransactions() {
         (rejectionText ? " " + rejectionText : ""),
       reviewCount ? "warning" : "success",
     );
-    await loadTransactions();
-    await loadAccounts();
-    await loadReconciliationReviews();
+    recentBatch = data.already_imported ? null : data.batch_id;
+    showMessage(
+      importResult,
+      elements.importMessage.textContent +
+        (recentBatch
+          ? " New and updated transactions are marked with a dot."
+          : ""),
+      reviewCount || data.rejected ? "warning" : "success",
+    );
+    navigation.view = "transactions";
+    navigation.status = "all";
+    navigation.search = "";
+    navigation.account = "";
+    navigation.start = "";
+    navigation.end = "";
+    navigation.direction = "all";
+    ledgerOffset = 0;
+    importBusy = false;
+    importDialog.close();
+    showFeature({ focus: true, load: false });
+    await Promise.all([loadTransactions(), loadAccounts()]);
   } catch {
     if (version === sessionVersion)
       showMessage(
@@ -847,10 +917,48 @@ async function importTransactions() {
         "Could not import transactions. Check your connection and try again. Retrying the same file is safe.",
       );
   } finally {
-    if (version === sessionVersion)
+    if (version === sessionVersion) {
+      importBusy = false;
+      closeImportButton.disabled = false;
+      elements.csvFile.disabled = false;
       elements.importButton.disabled = !parsedImport;
+    }
   }
 }
+
+function resetImportWindow() {
+  fileRequest++;
+  parsedImport = null;
+  elements.csvFile.value = "";
+  elements.importPreview.hidden = true;
+  elements.importButton.disabled = true;
+  clearMessage(elements.importMessage);
+}
+function openImportWindow() {
+  if (!currentUser || importBusy) return;
+  navigation.view = "transactions";
+  showFeature({ load: false });
+  loadAccounts();
+  loadTransactions();
+  resetImportWindow();
+  importDialog.showModal();
+  loadReconciliationReviews();
+  closeImportButton.focus();
+}
+document
+  .querySelectorAll("[data-open-import]")
+  .forEach((button) => button.addEventListener("click", openImportWindow));
+closeImportButton.addEventListener("click", () => {
+  if (!importBusy) importDialog.close();
+});
+importDialog.addEventListener("cancel", (event) => {
+  if (importBusy) event.preventDefault();
+});
+importDialog.addEventListener("close", () => {
+  resetImportWindow();
+  if (currentUser && navigation.view === "transactions")
+    document.querySelector("#transactions-title").focus();
+});
 
 elements.loginTab.addEventListener("click", () => setMode("login"));
 elements.signupTab.addEventListener("click", () => setMode("signup"));

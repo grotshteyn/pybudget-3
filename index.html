@@ -8,7 +8,7 @@
       content="PyBudget authentication and bank transaction import"
     />
     <title>PyBudget</title>
-    <link rel="stylesheet" href="styles.css?v=8" />
+    <link rel="stylesheet" href="styles.css?v=9" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
   <body>
@@ -28,7 +28,7 @@
       </section>
 
       <section class="auth-panel">
-        <div id="setup-warning" class="notice warning" hidden>
+        <div id="setup-warning" class="notice warning" hidden="">
           Add your Supabase URL and publishable key to <code>config.js</code>.
         </div>
 
@@ -65,7 +65,7 @@
               type="email"
               autocomplete="email"
               placeholder="you@example.com"
-              required
+              required=""
             />
             <label for="password">Password</label>
             <input
@@ -75,7 +75,7 @@
               autocomplete="current-password"
               minlength="6"
               placeholder="At least 6 characters"
-              required
+              required=""
             />
             <button id="submit-button" class="primary" type="submit">
               Log in
@@ -88,12 +88,12 @@
               class="notice"
               role="status"
               aria-live="polite"
-              hidden
+              hidden=""
             ></p>
           </form>
         </div>
 
-        <div id="dashboard-view" class="dashboard-stack" hidden>
+        <div id="dashboard-view" class="dashboard-stack" hidden="">
           <section class="card dashboard">
             <div class="dashboard-heading">
               <div>
@@ -122,13 +122,13 @@
                 href="#transactions"
                 >Transactions</a
               >
-              <a class="menu-button" data-view="budget" href="#budget"
-                >Budget</a
-              >
+
               <a class="menu-button" data-view="reports" href="#reports"
                 >Reports</a
               >
-              <a class="menu-button" data-view="setup" href="#setup">Setup</a>
+              <a class="menu-button" data-view="accounts" href="#accounts"
+                >Accounts</a
+              >
             </nav>
           </section>
 
@@ -136,44 +136,32 @@
             id="overview-view"
             class="card feature-view"
             aria-labelledby="overview-title"
-            hidden
+            hidden=""
           >
             <p class="eyebrow green">Overview</p>
-            <h2 id="overview-title" tabindex="-1">Your workspace</h2>
-            <p class="muted">
-              Import bank transactions and manage your accounts in Setup, then
-              review your recent ledger in Transactions.
-            </p>
-            <div class="view-actions">
-              <a class="secondary" href="#setup">Manage accounts and import</a
-              ><a class="secondary" href="#transactions">Review transactions</a>
+            <div class="section-heading">
+              <h2 id="overview-title" tabindex="-1">Monthly budget</h2>
+              <button
+                type="button"
+                class="compact primary import-plus"
+                data-open-import=""
+                aria-label="Import transactions"
+              >
+                +
+              </button>
             </div>
-            <p class="notice warning">
-              Balance overview and available-to-spend calculations are planned
-              and are not available yet.
-            </p>
-          </section>
-
-          <section
-            id="budget-view"
-            class="card feature-view"
-            aria-labelledby="budget-title"
-            hidden
-          >
-            <p class="eyebrow green">Budget</p>
-            <h2 id="budget-title" tabindex="-1">Monthly budget</h2>
             <p class="notice warning">
               Not available yet. Monthly category budgets and budget comparisons
               are planned.
             </p>
-            <a href="#transactions">Review imported transactions</a>
+            <a href="#transactions">Review transactions</a>
           </section>
 
           <section
             id="reports-view"
             class="card feature-view"
             aria-labelledby="reports-title"
-            hidden
+            hidden=""
           >
             <p class="eyebrow green">Reports</p>
             <h2 id="reports-title" tabindex="-1">Reports</h2>
@@ -191,125 +179,137 @@
           </section>
 
           <section
-            id="import-view"
-            class="setup-stack feature-view"
-            aria-labelledby="setup-title"
-            hidden
+            class="card feature-view"
+            id="accounts-view"
+            hidden=""
+            aria-labelledby="accounts-title"
           >
-            <section class="card">
-              <p class="eyebrow green">Setup</p>
-              <h2 id="setup-title" tabindex="-1">
-                Accounts, imports, and categories
-              </h2>
-            </section>
-            <section class="card">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow green">Accounts</p>
-                  <h2>Detected bank accounts</h2>
-                </div>
-                <button
-                  id="refresh-accounts"
-                  class="compact secondary"
-                  type="button"
-                >
-                  Refresh
-                </button>
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow green">Accounts</p>
+                <h2 id="accounts-title" tabindex="-1">Accounts</h2>
               </div>
-              <p class="muted">
-                Accounts are created automatically when they are found in an
-                import. You can rename or archive them here.
-              </p>
-              <p
-                id="accounts-message"
-                class="notice"
-                role="status"
-                aria-live="polite"
-                hidden
-              ></p>
-              <div id="accounts-list" class="accounts-list"></div>
-            </section>
-            <section class="card">
-              <p class="eyebrow green">Import</p>
-              <h2>Bank transactions</h2>
-              <p class="muted">
-                Select a Comdirect CSV. The file is parsed in your browser; only
-                normalized transactions are sent to your private database.
-              </p>
-              <label class="file-picker" for="csv-file">
-                <span>Choose Comdirect CSV</span>
-                <input id="csv-file" type="file" accept=".csv,text/csv" />
-              </label>
-              <div id="import-preview" class="import-preview" hidden>
-                <div>
-                  <span>Accounts</span><strong id="preview-accounts">0</strong>
-                </div>
-                <div>
-                  <span>Transactions</span
-                  ><strong id="preview-transactions">0</strong>
-                </div>
-                <div>
-                  <span>Pending</span><strong id="preview-pending">0</strong>
-                </div>
-                <div>
-                  <span>Rejected rows</span
-                  ><strong id="preview-errors">0</strong>
-                </div>
-              </div>
-              <button id="import-button" class="primary" type="button" disabled>
-                Import transactions
+              <button
+                id="refresh-accounts"
+                class="compact secondary"
+                type="button"
+              >
+                Refresh
               </button>
-              <p
-                id="import-message"
-                class="notice"
-                role="status"
-                aria-live="polite"
-                hidden
-              ></p>
-            </section>
-            <section class="card" aria-labelledby="reconciliation-title">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow green">Reconciliation</p>
-                  <h2 id="reconciliation-title">Transactions needing review</h2>
-                </div>
-                <button
-                  id="refresh-reconciliation"
-                  class="compact secondary"
-                  type="button"
-                >
-                  Refresh
-                </button>
-              </div>
-              <p class="muted">
-                When a booked transaction could match more than one pending
-                transaction, PyBudget waits for you instead of guessing.
-              </p>
-              <p
-                id="reconciliation-message"
-                class="notice"
-                role="status"
-                aria-live="polite"
-                hidden
-              ></p>
-              <div id="reconciliation-list" class="accounts-list"></div>
-            </section>
-            <section class="card" aria-labelledby="categories-title">
-              <p class="eyebrow green">Categories</p>
-              <h2 id="categories-title">Category setup</h2>
-              <p class="notice warning">
-                Not available yet. Category management and categorization rules
-                are planned.
-              </p>
-            </section>
+            </div>
+            <p class="muted">
+              Accounts are created automatically when they are found in an
+              import. You can rename or archive them here.
+            </p>
+            <p
+              id="accounts-message"
+              class="notice"
+              role="status"
+              aria-live="polite"
+              hidden=""
+            ></p>
+            <div id="accounts-list" class="accounts-list"></div>
           </section>
 
           <section
             id="transactions-view"
             class="card transactions-card feature-view"
             aria-labelledby="transactions-title"
-            hidden
+            hidden=""
           >
+            <dialog
+              id="import-dialog"
+              class="import-dialog"
+              aria-labelledby="import-title"
+            >
+              <div class="section-heading">
+                <h2 id="import-title">Import transactions</h2>
+                <button
+                  id="close-import"
+                  class="compact secondary"
+                  type="button"
+                  aria-label="Close import window"
+                >
+                  Close
+                </button>
+              </div>
+              <section class="">
+                <p class="muted">
+                  Choose a Comdirect CSV to add transactions to your accounts.
+                </p>
+                <label class="file-picker" for="csv-file">
+                  <span>Choose Comdirect CSV</span>
+                  <input id="csv-file" type="file" accept=".csv,text/csv" />
+                </label>
+                <div id="import-preview" class="import-preview" hidden="">
+                  <div>
+                    <span>Accounts</span
+                    ><strong id="preview-accounts">0</strong>
+                  </div>
+                  <div>
+                    <span>Transactions</span
+                    ><strong id="preview-transactions">0</strong>
+                  </div>
+                  <div>
+                    <span>Pending</span><strong id="preview-pending">0</strong>
+                  </div>
+                  <div>
+                    <span>Rejected rows</span
+                    ><strong id="preview-errors">0</strong>
+                  </div>
+                </div>
+                <button
+                  id="import-button"
+                  class="primary"
+                  type="button"
+                  disabled=""
+                >
+                  Import transactions
+                </button>
+                <p
+                  id="import-message"
+                  class="notice"
+                  role="status"
+                  aria-live="polite"
+                  hidden=""
+                ></p>
+              </section>
+              <section class="" aria-labelledby="reconciliation-title">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow green">Reconciliation</p>
+                    <h2 id="reconciliation-title">
+                      Transactions needing review
+                    </h2>
+                  </div>
+                  <button
+                    id="refresh-reconciliation"
+                    class="compact secondary"
+                    type="button"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <p class="muted">
+                  When a booked transaction could match more than one pending
+                  transaction, PyBudget waits for you instead of guessing.
+                </p>
+                <p
+                  id="reconciliation-message"
+                  class="notice"
+                  role="status"
+                  aria-live="polite"
+                  hidden=""
+                ></p>
+                <div id="reconciliation-list" class="accounts-list"></div>
+              </section>
+            </dialog>
+            <p
+              id="import-result"
+              class="notice success"
+              role="status"
+              hidden=""
+            ></p>
             <div class="section-heading">
               <div>
                 <p class="eyebrow green">Ledger</p>
@@ -321,6 +321,14 @@
                 type="button"
               >
                 Refresh
+              </button>
+              <button
+                type="button"
+                class="compact primary import-plus"
+                data-open-import=""
+                aria-label="Import transactions"
+              >
+                +
               </button>
             </div>
             <p class="muted">
@@ -382,7 +390,7 @@
                 id="previous-page"
                 class="compact secondary"
                 type="button"
-                disabled
+                disabled=""
               >
                 Previous</button
               ><span id="ledger-page" role="status">—</span
@@ -390,7 +398,7 @@
                 id="next-page"
                 class="compact secondary"
                 type="button"
-                disabled
+                disabled=""
               >
                 Next
               </button>
@@ -412,8 +420,17 @@
               class="notice"
               role="status"
               aria-live="polite"
-              hidden
+              hidden=""
             ></p>
+            <button
+              id="review-imports"
+              type="button"
+              class="compact secondary"
+              data-open-import=""
+              hidden=""
+            >
+              Review imported transactions
+            </button>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -431,7 +448,7 @@
             </div>
           </section>
 
-          <section class="card" hidden>
+          <section class="card" hidden="">
             <p class="eyebrow green">Storage test</p>
             <form id="test-field-form" class="test-field-form">
               <label for="test-field">Private test field</label>
@@ -450,7 +467,7 @@
                 class="notice"
                 role="status"
                 aria-live="polite"
-                hidden
+                hidden=""
               ></p>
             </form>
           </section>
@@ -460,6 +477,6 @@
 
     <script src="config.js?v=5"></script>
     <script src="importer.js?v=6"></script>
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=9"></script>
   </body>
 </html>
