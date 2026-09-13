@@ -30,6 +30,8 @@ GitHub Pages deploys the root files from `main`. Configure Supabase Auth:
 - Site URL: `https://grotshteyn.github.io/pybudget-3/`
 - Redirect URL: `https://grotshteyn.github.io/pybudget-3/**`
 
+Changes must be published and verified on the separate development preview before merging into `main`. Follow [the dev-first release process](docs/RELEASE_PROCESS.md); merging into `main` publishes production and does not update the development source branch.
+
 ## Tests
 
 The importer has no build dependency. Run:
