@@ -55,11 +55,11 @@ To use an installed Edge browser instead, set `TEST_BROWSER_CHANNEL=msedge` when
 
 ## Navigation
 
-Use links such as `#transactions?status=pending&q=shop` or `#reports?report=settlement`. Recognized views are `overview`, `transactions`, `budget`, `reports`, and `setup`. Links take precedence over saved state. State is retained in the URL and session storage for the current browser tab, including through logout/login. Filter text is part of the link, so check it before sharing a URL.
+Use links such as `#transactions?status=pending&q=shop` or `#reports?report=settlement`. Recognized views are `overview`, `transactions`, `budget`, `reports`, and `setup`. Links take precedence over saved state. State is retained in the URL and session storage for the current browser tab. Transaction search text is cleared on successful logout so merchant or description searches are not left in the URL or retained for the next login.
 
 Overview provides shortcuts. Balance calculations, monthly budgets, category management (in Setup), expense summaries, and settlement reports are explicitly marked as planned. The transaction view reads at most 200 recent rows; displayed totals apply to its filters and are not account balances.
 
-Live Supabase authentication, persistence, and RLS verification remain deferred while the project is paused (see `docs/TEST_PLAN.md`).
+The development and production Supabase environments are active. Login and CSV import have been verified on both environments; continue to follow `docs/TEST_PLAN.md` for regression and RLS checks.
 
 All committed fixtures are synthetic. Do not commit real bank exports.
 
