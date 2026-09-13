@@ -13,9 +13,9 @@ PyBudget is a phone-friendly budgeting application using a static GitHub Pages f
 - Bank-reference deduplication
 - Pending-to-booked reconciliation
 - Complete paginated transaction ledger and database totals
-- Responsive navigation: Overview, Transactions, Budget, Reports, and Setup
+- Responsive navigation: Overview, Transactions, Reports, and Accounts
 - Direct links and retained transaction status/search and report selection across refresh and login
-- Account rename, archive, and reactivation in Setup
+- Account rename, archive, and reactivation in Accounts
 
 ## Supabase setup
 
@@ -56,9 +56,9 @@ To use an installed Edge browser instead, set `TEST_BROWSER_CHANNEL=msedge` when
 
 ## Navigation
 
-Use links such as `#transactions?status=pending&q=shop` or `#reports?report=settlement`. Recognized views are `overview`, `transactions`, `budget`, `reports`, and `setup`. Links take precedence over saved state. State is retained in the URL and session storage for the current browser tab. Transaction search text is cleared on successful logout so merchant or description searches are not left in the URL or retained for the next login.
+Use links such as `#transactions?status=pending&q=shop` or `#reports?report=settlement`. Recognized views are `overview`, `transactions`, `reports`, and `accounts`. Links take precedence over saved state. State is retained in the URL and session storage for the current browser tab. Transaction search text is cleared on successful logout so merchant or description searches are not left in the URL or retained for the next login.
 
-Overview provides shortcuts. Balance calculations, monthly budgets, category management (in Setup), expense summaries, and settlement reports are explicitly marked as planned. The transaction view uses 50-row pages. Status, account, purchase/booking/value date, direction, and text filters run in the database, and totals cover every matching row. Cancelled rows are visible when selected but excluded from booked/pending totals. Undated rows are excluded by date filters. Category filters depend on #9; all current transactions are uncategorized. Totals describe movement rather than account balances. Unresolved booked reconciliation reviews are excluded and explicitly disclosed.
+Overview shows the monthly budget screen, whose budget calculations are still planned. The + button opens a CSV import window over Transactions; a successful import returns to the list and highlights new or updated rows from that import. Unchanged duplicates are not highlighted. Accounts contains account settings only. Legacy `#budget` and `#setup` links open Overview and Accounts. Category management, expense summaries, and settlement reports remain planned. The transaction view uses 50-row pages. Status, account, purchase/booking/value date, direction, and text filters run in the database, and totals cover every matching row. Cancelled rows are visible when selected but excluded from booked/pending totals. Undated rows are excluded by date filters. Category filters depend on #9; all current transactions are uncategorized. Totals describe movement rather than account balances. Unresolved booked reconciliation reviews are excluded and explicitly disclosed.
 
 The development and production Supabase environments are active. Login and CSV import have been verified on both environments; continue to follow `docs/TEST_PLAN.md` for regression and RLS checks.
 
