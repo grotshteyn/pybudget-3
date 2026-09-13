@@ -210,3 +210,7 @@ The detailed planned-expense specification is `docs/PLANNED_EXPENSES_FEATURE_PLA
 ## First useful release
 
 A user can register, import a supported CSV, see all transactions including pending ones, reimport overlapping exports without duplicates, and see a booked transaction replace its earlier pending representation without being counted twice.
+
+## Issue 6/7 development acceptance — 2026-09-13
+
+See [release evidence and boundaries](ISSUES_6_7_RELEASE.md). Import/reconciliation and complete ledger behavior have passed automated frontend and live development database acceptance. The older checklists above predate these checks; category/budget/balance/report work and #31 remain separate. Production release acceptance is tracked in the promotion PR.

@@ -12,7 +12,7 @@ PyBudget is a phone-friendly budgeting application using a static GitHub Pages f
 - Database-enforced import idempotency
 - Bank-reference deduplication
 - Pending-to-booked reconciliation
-- Recent transaction ledger and pending totals
+- Complete paginated transaction ledger and database totals
 - Responsive navigation: Overview, Transactions, Budget, Reports, and Setup
 - Direct links and retained transaction status/search and report selection across refresh and login
 - Account rename, archive, and reactivation in Setup
@@ -22,7 +22,8 @@ PyBudget is a phone-friendly budgeting application using a static GitHub Pages f
 1. Create a Supabase project and configure `config.js` with the project URL and publishable key.
 2. Run `supabase/schema.sql` in the Supabase SQL Editor for the original storage test.
 3. Run `supabase/transaction_import.sql` in the SQL Editor for accounts, imports, transactions, RLS, and the atomic import RPC.
-4. Never put a secret, service-role key, or database password in frontend code.
+4. Run `supabase/ledger.sql` to install the filtered ledger RPC. Existing deployments should apply the versioned files in `supabase/migrations/` instead.
+5. Never put a secret, service-role key, or database password in frontend code.
 
 The transaction migration deliberately grants authenticated clients read-only table access. Import writes go through `import_comdirect_transactions`, which derives ownership from the logged-in Supabase user.
 
@@ -57,7 +58,7 @@ To use an installed Edge browser instead, set `TEST_BROWSER_CHANNEL=msedge` when
 
 Use links such as `#transactions?status=pending&q=shop` or `#reports?report=settlement`. Recognized views are `overview`, `transactions`, `budget`, `reports`, and `setup`. Links take precedence over saved state. State is retained in the URL and session storage for the current browser tab. Transaction search text is cleared on successful logout so merchant or description searches are not left in the URL or retained for the next login.
 
-Overview provides shortcuts. Balance calculations, monthly budgets, category management (in Setup), expense summaries, and settlement reports are explicitly marked as planned. The transaction view reads at most 200 recent rows; displayed totals apply to its filters and are not account balances.
+Overview provides shortcuts. Balance calculations, monthly budgets, category management (in Setup), expense summaries, and settlement reports are explicitly marked as planned. The transaction view uses 50-row pages. Status, account, purchase/booking/value date, direction, and text filters run in the database, and totals cover every matching row. Cancelled rows are visible when selected but excluded from booked/pending totals. Undated rows are excluded by date filters. Category filters depend on #9; all current transactions are uncategorized. Totals describe movement rather than account balances. Unresolved booked reconciliation reviews are excluded and explicitly disclosed.
 
 The development and production Supabase environments are active. Login and CSV import have been verified on both environments; continue to follow `docs/TEST_PLAN.md` for regression and RLS checks.
 
@@ -75,3 +76,7 @@ Date-only rows set booking-date context for following `neu` rows in the same acc
 The synthetic regression fixtures cover Giro and Visa layouts, account boundaries, repeated headers and transactions, references, quoted text, calendar dates, and exact German amounts.
 
 Period metadata is recognized only in account/period rows, so period text in transaction descriptions remains transaction content. Malformed date-only rows clear booking-date context and produce an error; subsequent `neu` rows require a new valid date. Summary rows require empty or monetary-only remaining cells so summary-like booking markers cannot hide full malformed transactions.
+
+## Database acceptance
+
+Run `tests/database-acceptance.sql` in the development SQL Editor after applying the release migrations. It creates two synthetic users inside one transaction and rolls everything back. It verifies exact-file and overlapping imports, stable IDs, repeated legitimate payments, rejection reasons, rollback, both review actions, full-ledger totals and filters, and RLS/grants. A separate live concurrent-import check is recorded in `docs/ISSUES_6_7_RELEASE.md`.
