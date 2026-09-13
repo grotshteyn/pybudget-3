@@ -142,6 +142,7 @@ function mockSupabase() {
     await page.evaluate(() => { fixture.logoutError = false; });
     await page.locator("#logout-button").click(); await page.locator("#auth-view").waitFor();
     assert.equal(await page.locator("#transactions-body tr").count(), 0);
+    assert.equal(new URL(page.url()).hash.includes("q="), false);
     await page.reload(); await page.locator("#auth-view").waitFor();
     await page.fill("#email", "test@example.invalid"); await page.fill("#password", "synthetic-password");
     await page.locator("#submit-button").click(); await active("transactions"); await rows(1);
