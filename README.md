@@ -44,3 +44,9 @@ All committed fixtures are synthetic. Do not commit real bank exports.
 
 - `docs/ROADMAP.md`
 - `docs/CURRENT_FEATURE_PLAN.md`
+
+### Comdirect import validation
+
+Date-only rows set booking-date context for following `neu` rows in the same account section. Pending rows keep a null booking date. Each section uses its own header, and recognized bank summaries are skipped. Invalid transaction rows return a row number, error code, and English message. Invalid CSV quoting rejects the whole file with `invalid_csv` to avoid importing ambiguous records.
+
+The synthetic regression fixtures cover Giro and Visa layouts, account boundaries, repeated headers and transactions, references, quoted text, calendar dates, and exact German amounts.
