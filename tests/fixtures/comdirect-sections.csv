@@ -1,0 +1,20 @@
+"Umsätze Synthetic Giro";
+"Buchungstag";"Wertstellung (Valuta)";"Vorgang";"Buchungstext";"Umsatz in EUR";
+"Kontostand:";"1.234,56";
+"29.02.2024";"";"";"";"";
+"neu";"29.02.2024";"Lastschrift / Belastung";"Empfänger: Müller; Café
+Buchungstext: ""Test"" Ref. SYN/001";"-1.234,56";
+"neu";"29.02.2024";"Lastschrift / Belastung";"Empfänger: Müller; Café
+Buchungstext: ""Test"" Ref. SYN/001";"-1.234,56";
+"Buchungstag";"Wertstellung (Valuta)";"Vorgang";"Buchungstext";"Umsatz in EUR";
+"offen";"--";"Lastschrift / Belastung";"Pending";"-0,01";
+"";"";"";"";"";
+"Keine Umsätze vorhanden";
+"Umsätze Synthetic Visa";
+"Buchungstag";"Umsatztag";"Vorgang";"Referenz";"Buchungstext";"Umsatz in EUR";
+"neu";"01.03.2024";"Visa-Umsatz";"MISSING";"Missing context";"-1,00";
+"02.03.2024";"";"";"";"";"";
+"neu";"01.03.2024";"Visa-Umsatz";"000 A  B/01";"Synthetic Shop";"-2,00";
+"neu";"01.03.2024";"Visa-Umsatz";"000 A  B/02";"Synthetic Shop";"-2,00";
+"offen";"01.03.2024";"Visa-Umsatz";"PENDING";"Synthetic Shop";"-3,00";
+"Saldo:";"100,00";
