@@ -317,7 +317,7 @@ function showFeature({ focus = false, load = true } = {}) {
   retainNavigation();
   document.title = `${navigation.view[0].toUpperCase()}${navigation.view.slice(1)} · PyBudget`;
   if (focus) document.querySelector(`#${views[navigation.view]} h2[tabindex]`).focus();
-  if (load && navigation.view === "setup") loadAccounts();
+  if (load && navigation.view === "setup") { loadAccounts(); loadTransactions().then(loadReconciliationReviews); }
   if (load && navigation.view === "transactions") loadTransactions();
 }
 
@@ -335,6 +335,7 @@ function renderSession(session) {
     transactionState = "idle";
     elements.transactionsBody.replaceChildren();
     elements.accountsList.replaceChildren();
+    elements.reconciliationList.replaceChildren();
     elements.csvFile.value = "";
     parsedImport = null;
     elements.importPreview.hidden = true;
