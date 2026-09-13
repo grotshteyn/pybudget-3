@@ -62,11 +62,11 @@ begin
     return jsonb_build_object(
       'batch_id', v_existing_batch.id,
       'already_imported', true,
-      'rows', v_existing_batch.row_count,
-      'inserted', v_existing_batch.inserted_count,
-      'duplicates', v_existing_batch.duplicate_count,
-      'reconciled', v_existing_batch.reconciled_count,
-      'rejected', v_existing_batch.rejected_count,
+      'rows', 0,
+      'inserted', 0,
+      'duplicates', 0,
+      'reconciled', 0,
+      'rejected', 0,
       'needs_review', v_existing_batch.review_count,
       'errors', v_existing_batch.rejection_errors
     );
