@@ -161,8 +161,34 @@
           <section id="plans-view" class="card feature-view" aria-labelledby="plans-title" hidden="">
             <div class="section-heading">
               <h2 id="plans-title" tabindex="-1">Plans</h2>
-              <button type="button" class="compact primary" aria-label="Add plan" disabled>+</button>
+              <button id="add-plan" type="button" class="compact primary" aria-label="Add plan">+</button>
             </div>
+            <dialog id="plan-dialog" class="import-dialog" aria-labelledby="plan-dialog-title">
+              <div class="section-heading">
+                <h2 id="plan-dialog-title">Add plan</h2>
+                <button id="close-plan" class="compact secondary" type="button">Close</button>
+              </div>
+              <form id="plan-form">
+                <input id="plan-id" type="hidden" />
+                <label for="plan-name">Name</label>
+                <input id="plan-name" maxlength="120" required />
+                <label for="plan-amount">Amount (€)</label>
+                <input id="plan-amount" type="number" min="0.01" step="0.01" required />
+                <label for="plan-direction">Direction</label>
+                <select id="plan-direction"><option value="expense">Expense</option><option value="income">Income</option></select>
+                <label for="plan-schedule">Schedule</label>
+                <select id="plan-schedule"><option value="one_time">One time</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
+                <label for="plan-start">Start date</label>
+                <input id="plan-start" type="date" required />
+                <label for="plan-end">End date (optional)</label>
+                <input id="plan-end" type="date" />
+                <div class="assignment-actions">
+                  <button id="save-plan" class="primary" type="submit">Save plan</button>
+                  <button id="deactivate-plan" class="secondary" type="button" hidden>Deactivate</button>
+                </div>
+                <p id="plan-form-message" class="notice" role="status" aria-live="polite" hidden></p>
+              </form>
+            </dialog>
             <div class="month-navigation" aria-label="Plan month">
               <button id="previous-plan-month" class="compact secondary" type="button" aria-label="Previous plan month">‹</button>
               <strong id="plan-month" aria-live="polite"></strong>
