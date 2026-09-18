@@ -675,13 +675,13 @@ async function loadPlans() {
         .select("plan_id,amount_cent,transactions!inner(status,transaction_date,booking_date,value_date)")
         .in("plan_id", ids)
         .neq("transactions.status", "cancelled")
-        .gte("transactions.transaction_date", bounds.start)
-        .lte("transactions.transaction_date", bounds.end)
     : { data: [], error: null };
   if (allocationError) return showMessage(elements.plansMessage, "Could not load plan allocations.");
   const actualByPlan = new Map();
   (allocations || []).forEach((allocation) => {
-    if (allocation.transactions?.status === "cancelled") return;
+    const transaction = allocation.transactions;
+    const date = transaction?.transaction_date || transaction?.booking_date || transaction?.value_date;
+    if (transaction?.status === "cancelled" || !date || date < bounds.start || date > bounds.end) return;
     actualByPlan.set(allocation.plan_id, (actualByPlan.get(allocation.plan_id) || 0) + Number(allocation.amount_cent));
   });
   const render = (direction, container) => {
