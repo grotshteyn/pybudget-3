@@ -1,4 +1,5 @@
 import { applyRulesAfterImport } from "./rule-import-orchestrator.js";
+import { createManualPlanMatch, createPartnerRule } from "./rule-actions.js";
 
 const config = window.PYBUDGET_CONFIG || {};
 const configured = Boolean(
@@ -55,6 +56,13 @@ const elements = {
   testField: document.querySelector("#test-field"),
   saveFieldButton: document.querySelector("#save-field-button"),
   dataMessage: document.querySelector("#data-message"),
+  assignDialog: document.querySelector("#assign-dialog"),
+  assignTitle: document.querySelector("#assign-title"),
+  assignPlan: document.querySelector("#assign-plan"),
+  assignMessage: document.querySelector("#assign-message"),
+  assignOnce: document.querySelector("#assign-once"),
+  assignPartner: document.querySelector("#assign-partner"),
+  closeAssign: document.querySelector("#close-assign"),
 };
 
 let mode = "login";
@@ -73,6 +81,7 @@ const pageSize = 50;
 let reviewCandidates = [],
   reviewRequest = 0;
 const loadMore = document.querySelector("#load-more");
+let assignmentTransaction = null;
 let transactionState = "idle";
 let transactionError = "";
 let sessionVersion = 0;
@@ -395,6 +404,61 @@ async function loadTransactions() {
   renderTransactions();
 }
 
+
+function openAssignment(transaction) {
+  assignmentTransaction = transaction;
+  elements.assignTitle.textContent =
+    "Assign " + (transaction.partner || transaction.description || "transaction");
+  elements.assignPlan.value = "";
+  clearMessage(elements.assignMessage);
+  elements.assignPartner.hidden = !transaction.partner;
+  elements.assignPartner.textContent = transaction.partner
+    ? 'All transactions from "' + transaction.partner + '"'
+    : "Create partner rule";
+  elements.assignDialog.showModal();
+}
+
+function selectedPlanId() {
+  const value = elements.assignPlan.value.trim();
+  return /^[0-9a-f-]{36}$/i.test(value) ? value : null;
+}
+
+async function assignCurrentTransaction(createRule = false) {
+  if (!client || !currentUser || !assignmentTransaction) return;
+  const planId = selectedPlanId();
+  if (!planId)
+    return showMessage(elements.assignMessage, "Enter a valid plan ID.");
+  elements.assignOnce.disabled = true;
+  elements.assignPartner.disabled = true;
+  try {
+    if (createRule) {
+      await createPartnerRule(client, currentUser.id, assignmentTransaction, planId);
+    }
+    await createManualPlanMatch(
+      client,
+      currentUser.id,
+      assignmentTransaction.id,
+      planId,
+    );
+    elements.assignDialog.close();
+    showMessage(
+      elements.transactionsMessage,
+      createRule
+        ? "Transaction assigned and partner rule created."
+        : "Transaction assigned to plan.",
+      "success",
+    );
+  } catch (error) {
+    showMessage(
+      elements.assignMessage,
+      error.message || "Could not assign this transaction.",
+    );
+  } finally {
+    elements.assignOnce.disabled = false;
+    elements.assignPartner.disabled = false;
+  }
+}
+
 function renderTransactions() {
   clearMessage(elements.transactionsMessage);
   const filtered = transactions;
@@ -469,8 +533,13 @@ function renderTransactions() {
             (i.file_name || "File") + " (" + i.batch_id + ", " + i.status + ")",
         )
         .join("; ");
+    const assign = document.createElement("button");
+    assign.type = "button";
+    assign.className = "compact secondary transaction-assign";
+    assign.textContent = "Assign";
+    assign.addEventListener("click", () => openAssignment(transaction));
     details.append(summary, info, provenance);
-    cell.append(details);
+    cell.append(details, assign);
     row.append(cell);
     return row;
   });
@@ -1007,3 +1076,11 @@ if (!configured) {
   client.auth.getSession().then(({ data }) => renderSession(data.session));
   client.auth.onAuthStateChange((_event, session) => renderSession(session));
 }
+
+elements.assignOnce.addEventListener("click", () => assignCurrentTransaction(false));
+elements.assignPartner.addEventListener("click", () => assignCurrentTransaction(true));
+elements.closeAssign.addEventListener("click", () => elements.assignDialog.close());
+elements.assignDialog.addEventListener("close", () => {
+  assignmentTransaction = null;
+  clearMessage(elements.assignMessage);
+});
