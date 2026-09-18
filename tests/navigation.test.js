@@ -353,7 +353,7 @@ function mockSupabase() {
     assert.match(await page.locator("#expense-plans details").textContent(), /Example shop/);
     await page.locator("#expense-plans details button", { hasText: "Unassign" }).click();
     await page.waitForFunction(() => fixture.unallocationRpc?.p_transaction_id === "t2");
-    await page.getByLabel("Expenses").getByRole("button", { name: "Edit" }).click();
+    await page.getByLabel("Expenses").getByRole("button", { name: "Edit" }).first().click();
     assert.equal(await page.locator("#plan-dialog-title").textContent(), "Edit plan");
     assert.equal(await page.locator("#plan-name").inputValue(), "Groceries");
     await page.locator("#close-plan").click();
