@@ -229,6 +229,10 @@ function mockSupabase() {
         "styles.css",
         "importer.js",
         "config.js",
+        "rules.js",
+        "rule-service.js",
+        "rule-import-orchestrator.js",
+        "rule-actions.js",
       ].includes(name)
     ) {
       res.writeHead(404);
