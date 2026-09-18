@@ -634,8 +634,9 @@ async function savePlan(event) {
   const amountCent = Math.round(Number(elements.planAmount.value) * 100);
   if (!elements.planName.value.trim() || !Number.isInteger(amountCent) || amountCent <= 0)
     return showMessage(elements.planFormMessage, "Enter a name and a positive amount.");
+  if (elements.planEnd.value && elements.planEnd.value < elements.planStart.value)
+    return showMessage(elements.planFormMessage, "End date cannot be before start date.");
   const values = {
-    user_id: currentUser.id,
     name: elements.planName.value.trim(),
     amount_cent: amountCent,
     direction: elements.planDirection.value,
@@ -647,7 +648,7 @@ async function savePlan(event) {
   };
   let query = elements.planId.value
     ? client.from("plans").update(values).eq("id", elements.planId.value)
-    : client.from("plans").insert(values);
+    : client.from("plans").insert({ ...values, user_id: currentUser.id });
   const { error } = await query;
   if (error) return showMessage(elements.planFormMessage, error.message || "Could not save plan.");
   elements.planDialog.close();
