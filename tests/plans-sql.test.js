@@ -39,4 +39,8 @@ assert.match(allocationSql, /allocation exceeds transaction amount/i);
 assert.match(allocationSql, /plan_allocations_manual_unique_idx/);
 assert.match(allocationSql, /on delete cascade/i);
 assert.match(allocationSql, /security invoker/i);
+assert.match(allocationSql, /p_source text default null/i);
+assert.match(allocationSql, /p_source is null or source = p_source/i);
+assert.match(allocationSql, /where id = p_transaction_id and user_id = v_user/i);
+assert.match(allocationSql, /where id = p_plan_id and user_id = v_user and is_active/i);
 console.log("Plan allocation SQL contracts passed.");
