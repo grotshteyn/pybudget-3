@@ -28,6 +28,9 @@ const elements = {
   navigationLinks: document.querySelectorAll(".app-menu [data-view]"),
   transactionStatus: document.querySelector("#transaction-status"),
   transactionSearch: document.querySelector("#transaction-search"),
+  transactionMonth: document.querySelector("#transaction-month"),
+  previousMonth: document.querySelector("#previous-month"),
+  nextMonth: document.querySelector("#next-month"),
   reportVariant: document.querySelector("#report-variant"),
   reportMessage: document.querySelector("#report-message"),
   importView: document.querySelector("#accounts-view"),
@@ -74,7 +77,7 @@ const pageSize = 50;
 let reviewCandidates = [],
   reviewRequest = 0;
 const ledgerControls = Object.fromEntries(
-  ["account", "start", "end", "direction"].map((k) => [
+  ["account", "direction"].map((k) => [
     k,
     document.querySelector("#transaction-" + k),
   ]),
@@ -95,6 +98,34 @@ const views = {
   accounts: "accounts-view",
 };
 const navigationKey = "pybudget.navigation.v1";
+
+function currentMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthBounds(month) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const lastDay = new Date(year, monthNumber, 0).getDate();
+  return {
+    start: `${month}-01`,
+    end: `${month}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
+function shiftMonth(month, offset) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(year, monthNumber - 1 + offset, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonth(month) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, monthNumber - 1, 1));
+}
 
 function readNavigation() {
   const migrateRoute = (value) =>
@@ -119,12 +150,9 @@ function readNavigation() {
     account: /^[0-9a-f-]{36}$/i.test(params.get("account") || "")
       ? params.get("account")
       : "",
-    start: /^\d{4}-\d{2}-\d{2}$/.test(params.get("start") || "")
-      ? params.get("start")
-      : "",
-    end: /^\d{4}-\d{2}-\d{2}$/.test(params.get("end") || "")
-      ? params.get("end")
-      : "",
+    month: /^\d{4}-\d{2}$/.test(params.get("month") || "")
+      ? params.get("month")
+      : currentMonth(),
     direction: ["income", "expense"].includes(params.get("direction"))
       ? params.get("direction")
       : "all",
@@ -138,8 +166,8 @@ function navigationHash(view = navigation.view) {
   const params = new URLSearchParams();
   if (navigation.status !== "all") params.set("status", navigation.status);
   if (navigation.search) params.set("q", navigation.search);
-  for (const k of ["account", "start", "end"])
-    if (navigation[k]) params.set(k, navigation[k]);
+  if (navigation.account) params.set("account", navigation.account);
+  params.set("month", navigation.month);
   if (navigation.direction !== "all")
     params.set("direction", navigation.direction);
   if (navigation.report !== "expenses") params.set("report", navigation.report);
@@ -367,14 +395,15 @@ async function loadTransactions() {
   transactionState = "loading";
   renderTransactions();
   try {
+    const bounds = monthBounds(navigation.month);
     const { data, error } = await client.rpc("read_transaction_ledger", {
       p_offset: ledgerOffset,
       p_limit: pageSize,
       p_status: navigation.status,
       p_search: navigation.search,
       p_account: navigation.account || null,
-      p_start: navigation.start || null,
-      p_end: navigation.end || null,
+      p_start: bounds.start,
+      p_end: bounds.end,
       p_direction: navigation.direction,
     });
     if (version !== sessionVersion || request !== transactionsRequest) return;
@@ -505,8 +534,7 @@ function renderTransactions() {
       navigation.search ||
         navigation.status !== "all" ||
         navigation.account ||
-        navigation.start ||
-        navigation.end ||
+        navigation.month !== currentMonth() ||
         navigation.direction !== "all"
         ? "No transactions match these filters."
         : "No imported transactions yet. Use + to import a bank CSV.",
@@ -529,6 +557,7 @@ function renderTransactions() {
 function showFeature({ focus = false, load = true } = {}) {
   elements.transactionStatus.value = navigation.status;
   elements.transactionSearch.value = navigation.search;
+  elements.transactionMonth.textContent = formatMonth(navigation.month);
   for (const k of Object.keys(ledgerControls))
     ledgerControls[k].value = navigation[k];
   elements.reportVariant.value = navigation.report;
@@ -575,8 +604,7 @@ function renderSession(session) {
     ledgerControls.account.replaceChildren(new Option("All accounts", ""));
     if (previousId) {
       navigation.account = "";
-      navigation.start = "";
-      navigation.end = "";
+      navigation.month = currentMonth();
       navigation.direction = "all";
     }
     transactionState = "idle";
@@ -902,8 +930,7 @@ async function importTransactions() {
     navigation.status = "all";
     navigation.search = "";
     navigation.account = "";
-    navigation.start = "";
-    navigation.end = "";
+    navigation.month = currentMonth();
     navigation.direction = "all";
     ledgerOffset = 0;
     importBusy = false;
@@ -980,6 +1007,14 @@ function updateFilters() {
 }
 for (const c of Object.values(ledgerControls))
   c.addEventListener("change", updateFilters);
+function changeMonth(offset) {
+  navigation.month = shiftMonth(navigation.month, offset);
+  ledgerOffset = 0;
+  showFeature({ load: false });
+  loadTransactions();
+}
+elements.previousMonth.addEventListener("click", () => changeMonth(-1));
+elements.nextMonth.addEventListener("click", () => changeMonth(1));
 previousPage.addEventListener("click", () => {
   ledgerOffset = Math.max(0, ledgerOffset - pageSize);
   loadTransactions();
