@@ -467,6 +467,9 @@ async function assignCurrentTransaction(createRule = false) {
   elements.assignOnce.disabled = true;
   elements.assignPartner.disabled = true;
   try {
+    const amountCent = Math.round(Number(elements.assignAmount.value) * 100);
+    if (!Number.isInteger(amountCent) || amountCent <= 0)
+      throw new Error("Enter a positive allocation amount.");
     if (createRule) {
       await createPartnerRule(client, currentUser.id, assignmentTransaction, planId);
     }
@@ -475,11 +478,8 @@ async function assignCurrentTransaction(createRule = false) {
       currentUser.id,
       assignmentTransaction.id,
       planId,
+      amountCent,
     );
-    const amountCent = Math.round(Number(elements.assignAmount.value) * 100);
-    if (!Number.isInteger(amountCent) || amountCent <= 0)
-      throw new Error("Enter a positive allocation amount.");
-    await allocateTransaction(client, assignmentTransaction.id, planId, amountCent);
     elements.assignDialog.close();
     showMessage(
       elements.transactionsMessage,
