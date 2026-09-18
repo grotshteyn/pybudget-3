@@ -1,3 +1,5 @@
+import { applyRulesAfterImport } from "./rule-import-orchestrator.js";
+
 const config = window.PYBUDGET_CONFIG || {};
 const configured = Boolean(
   config.supabaseUrl &&
@@ -835,11 +837,16 @@ async function importTransactions() {
     });
     if (version !== sessionVersion) return;
     if (error) throw error;
+    const ruleResult = await applyRulesAfterImport(client, data);
+    if (version !== sessionVersion) return;
     const prefix = data.already_imported
       ? "This exact file was already imported."
       : "Import complete.";
     const reviewCount = Number(data.needs_review || 0);
     const reviewText = reviewCount ? ", needs review " + reviewCount : "";
+    const ruleText = ruleResult.skipped || !ruleResult.matched
+      ? ""
+      : ", rule-matched " + ruleResult.matched;
     const rejectionText = (data.errors || [])
       .slice(0, 5)
       .map((e) => "Row " + e.row + ": " + e.reason)
@@ -856,6 +863,7 @@ async function importTransactions() {
         ", rejected " +
         data.rejected +
         reviewText +
+        ruleText +
         "." +
         (rejectionText ? " " + rejectionText : ""),
       reviewCount ? "warning" : "success",
