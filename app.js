@@ -1,5 +1,5 @@
 import { applyRulesAfterImport } from "./rule-import-orchestrator.js";
-import { createManualPlanMatch, createPartnerRule } from "./rule-actions.js";
+import { allocateTransaction, createManualPlanMatch, createPartnerRule } from "./rule-actions.js";
 
 const config = window.PYBUDGET_CONFIG || {};
 const configured = Boolean(
@@ -666,7 +666,7 @@ async function loadPlans() {
     if (planError) return showMessage(elements.plansMessage, "Could not load plan details.");
     plansById = new Map((planRows || []).map((plan) => [plan.id, plan]));
   }
-  const detailed = occurrences.map((item) => ({ ...item, ...(plansById.get(item.plan_id) || {}) }));
+  const detailed = occurrences.map((item) => ({ ...item, ...(plansById.get(item.plan_id) || {}) }));\n  const { data: allocations, error: allocationError } = ids.length\n    ? await client.from("plan_allocations").select("plan_id,amount_cent,transactions(status)").in("plan_id", ids)\n    : { data: [], error: null };\n  if (allocationError) return showMessage(elements.plansMessage, "Could not load plan allocations.");\n  const actualByPlan = new Map();\n  (allocations || []).forEach((allocation) => {\n    if (allocation.transactions?.status === "cancelled") return;\n    actualByPlan.set(allocation.plan_id, (actualByPlan.get(allocation.plan_id) || 0) + Number(allocation.amount_cent));\n  });
   const render = (direction, container) => {
     const rows = detailed.filter((item) => item.direction === direction);
     if (!rows.length) {
@@ -682,7 +682,7 @@ async function loadPlans() {
       const name = document.createElement("strong");
       name.textContent = item.name || "Plan";
       const amount = document.createElement("span");
-      amount.textContent = formatMoney(item.amount_cent);
+      const planned = Number(item.amount_cent);\n      const actual = actualByPlan.get(item.plan_id) || 0;\n      amount.textContent = `${formatMoney(actual)} / ${formatMoney(planned)} · ${formatMoney(planned - actual)} remaining`;
       const edit = document.createElement("button");
       edit.type = "button";
       edit.className = "compact secondary";
