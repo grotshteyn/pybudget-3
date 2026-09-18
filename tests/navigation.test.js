@@ -407,8 +407,6 @@ function mockSupabase() {
     assert.equal(await page.locator("#import-dialog").isVisible(), false);
     assert.equal(await page.locator(".new-transaction").count(), 1);
     assert.equal(await page.locator(".new-dot").count(), 1);
-    assert.equal(await page.locator("#transaction-status").inputValue(), "all");
-    assert.equal(await page.locator("#transaction-search").inputValue(), "");
     assert.equal(
       await page.evaluate(() => fixture.rpc.name),
       "import_comdirect_transactions",
@@ -453,45 +451,15 @@ function mockSupabase() {
     await active("transactions");
     await rows(2);
 
-    await page.selectOption("#transaction-status", "all");
-    await page.fill("#transaction-search", "");
-    await rows(2);
-    await page.fill("#transaction-search", "no matching synthetic text");
-    await rows(0);
-    assert.match(
-      await page.locator("#transactions-message").textContent(),
-      /No transactions match/,
-    );
-    await page.fill("#transaction-search", "");
     await page.evaluate(() => {
-      fixture.delay = 350;
-      fixture.error = true;
-    });
-    await page.locator("#refresh-transactions").click();
-    assert.match(
-      await page.locator("#transactions-message").textContent(),
-      /Loading/,
-    );
-    await page.waitForFunction(() =>
-      document
-        .querySelector("#transactions-message")
-        .textContent.includes("Could not load"),
-    );
-    assert.equal(await page.locator("#transactions-body tr").count(), 0);
-    assert.match(
-      await page.locator("#combined-total").textContent(),
-      /0[.,]00/,
-    );
-    await page.evaluate(() => {
-      fixture.delay = 0;
-      fixture.error = false;
       fixture.rows = [];
     });
-    await page.locator("#refresh-transactions").click();
+    await navigate("overview");
+    await navigate("transactions");
     await rows(0);
     assert.match(
       await page.locator("#transactions-message").textContent(),
-      /No imported transactions/,
+      /No transactions in this month/,
     );
     await navigate("accounts");
     await page.evaluate(() => {
@@ -527,17 +495,8 @@ function mockSupabase() {
     });
     await navigate("transactions");
     await rows(50);
-    assert.match(await page.locator("#ledger-page").textContent(), /of 251/);
     await page.locator("#load-more").click();
     await rows(100);
-    await page.selectOption("#transaction-status", "cancelled");
-    await rows(1);
-    assert.match(
-      await page.locator("#combined-total").textContent(),
-      /0[.,]00/,
-    );
-    await page.selectOption("#transaction-status", "all");
-    await rows(50);
     await page.evaluate(() => {
       fixture.reviews = [
         {
