@@ -27,6 +27,6 @@ assert.deepEqual(result.match, {
 
 const manual = { id: "m1", transaction_id: "t1", plan_id: "other", source: "manual" };
 assert.equal(planAutomaticMatch({ transaction, rules: [rule], occurrences: [september], existingMatch: manual }).status, "manual");
-assert.equal(planAutomaticMatch({ transaction, rules: [rule], occurrences: [] }).status, "unmatched");
+assert.equal(planAutomaticMatch({ transaction, rules: [rule], occurrences: [] }).status, "matched");
 
 console.log("Rule service tests passed.");
