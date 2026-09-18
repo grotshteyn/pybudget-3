@@ -322,7 +322,15 @@ function mockSupabase() {
     await rows(2);
     await navigate("plans");
     await page.waitForFunction(() => document.querySelectorAll("#expense-plans .plan-row").length === 1 && document.querySelectorAll("#income-plans .plan-row").length === 1);
-    assert.match(await page.locator("#plan-month").textContent(), /September 2026/);\n    await page.locator("#expense-plans .plan-row button").click();\n    assert.equal(await page.locator("#plan-dialog-title").textContent(), "Edit plan");\n    assert.equal(await page.locator("#plan-name").inputValue(), "Groceries");\n    await page.locator("#close-plan").click();\n    await page.locator("#add-plan").click();\n    assert.equal(await page.locator("#plan-dialog-title").textContent(), "Add plan");\n    assert.equal(await page.locator("#plan-start").inputValue(), "2026-09-01");\n    await page.locator("#close-plan").click();
+    assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
+    await page.locator("#expense-plans .plan-row button").click();
+    assert.equal(await page.locator("#plan-dialog-title").textContent(), "Edit plan");
+    assert.equal(await page.locator("#plan-name").inputValue(), "Groceries");
+    await page.locator("#close-plan").click();
+    await page.locator("#add-plan").click();
+    assert.equal(await page.locator("#plan-dialog-title").textContent(), "Add plan");
+    assert.equal(await page.locator("#plan-start").inputValue(), "2026-09-01");
+    await page.locator("#close-plan").click();
     await page.locator("#next-plan-month").click();
     assert.match(await page.locator("#plan-month").textContent(), /October 2026/);
     await navigate("overview");
