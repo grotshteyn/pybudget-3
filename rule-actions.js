@@ -1,3 +1,24 @@
+export async function allocateTransaction(client, transactionId, planId, amountCent = null, source = "manual", ruleId = null) {
+  const { data, error } = await client.rpc("allocate_transaction_to_plan", {
+    p_transaction_id: transactionId,
+    p_plan_id: planId,
+    p_amount_cent: amountCent,
+    p_source: source,
+    p_rule_id: ruleId,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function unallocateTransaction(client, transactionId, planId) {
+  const { data, error } = await client.rpc("unallocate_transaction_from_plan", {
+    p_transaction_id: transactionId,
+    p_plan_id: planId,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function createManualPlanMatch(client, userId, transactionId, planId) {
   const payload = {
     user_id: userId,
