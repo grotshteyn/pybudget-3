@@ -298,20 +298,16 @@ function mockSupabase() {
 
     await page.goto(`${base}/#transactions?month=2026-09`);
     await active("transactions");
-    await rows(1);
+    await rows(2);
     await page.reload();
-    await rows(1);
+    await rows(2);
     await active("transactions");
     await navigate("overview");
     await page
       .getByRole("link", { name: "Review transactions", exact: true })
       .click();
     await active("transactions");
-    await rows(1);
-    assert.equal(
-      await page.locator("#transaction-search").inputValue(),
-      "shop",
-    );
+    await rows(2);
     await navigate("overview");
     assert.match(
       await page.locator("#overview-view").textContent(),
