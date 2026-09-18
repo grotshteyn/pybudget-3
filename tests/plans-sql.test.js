@@ -1,5 +1,9 @@
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const foundation = fs.readFileSync("supabase/migrations/20260918_issue_38_plans_foundation.sql", "utf8");
 const schedule = fs.readFileSync("supabase/migrations/20260918_issue_38_plan_scheduling.sql", "utf8");
