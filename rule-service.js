@@ -72,11 +72,18 @@ export async function loadRules(client) {
 export async function loadExistingMatches(client, transactionIds) {
   if (!transactionIds.length) return new Map();
   const { data, error } = await client
-    .from("transaction_plan_matches")
-    .select("id,transaction_id,plan_id,rule_id,source")
+    .from("plan_allocations")
+    .select("id,transaction_id,plan_id,rule_id,source,amount_cent")
     .in("transaction_id", transactionIds);
   if (error) throw error;
-  return new Map((data || []).map((match) => [match.transaction_id, match]));
+
+  const matches = new Map();
+  for (const allocation of data || []) {
+    if (!matches.has(allocation.transaction_id)) {
+      matches.set(allocation.transaction_id, allocation);
+    }
+  }
+  return matches;
 }
 
 export async function applyAutomaticRules(client, transactions, occurrences = []) {
@@ -87,7 +94,7 @@ export async function applyAutomaticRules(client, transactions, occurrences = []
     loadExistingMatches(client, transactions.map((transaction) => transaction.id)),
   ]);
 
-  const inserts = [];
+  const allocations = [];
   const ambiguous = [];
   const unmatched = [];
 
@@ -98,15 +105,21 @@ export async function applyAutomaticRules(client, transactions, occurrences = []
       occurrences,
       existingMatch: existing.get(transaction.id) || null,
     });
-    if (result.status === "matched") inserts.push(result.match);
+    if (result.status === "matched") allocations.push(result.match);
     else if (result.status === "ambiguous") ambiguous.push({ transaction, result });
     else if (result.status === "unmatched") unmatched.push(transaction);
   }
 
-  if (inserts.length) {
-    const { error } = await client.from("transaction_plan_matches").insert(inserts);
+  for (const allocation of allocations) {
+    const { error } = await client.rpc("allocate_transaction_to_plan", {
+      p_transaction_id: allocation.transaction_id,
+      p_plan_id: allocation.plan_id,
+      p_amount_cent: null,
+      p_source: "rule",
+      p_rule_id: allocation.rule_id,
+    });
     if (error) throw error;
   }
 
-  return { matched: inserts.length, ambiguous, unmatched };
+  return { matched: allocations.length, ambiguous, unmatched };
 }
