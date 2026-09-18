@@ -32,6 +32,12 @@ const elements = {
   transactionMonth: document.querySelector("#transaction-month"),
   previousMonth: document.querySelector("#previous-month"),
   nextMonth: document.querySelector("#next-month"),
+  planMonth: document.querySelector("#plan-month"),
+  previousPlanMonth: document.querySelector("#previous-plan-month"),
+  nextPlanMonth: document.querySelector("#next-plan-month"),
+  plansMessage: document.querySelector("#plans-message"),
+  expensePlans: document.querySelector("#expense-plans"),
+  incomePlans: document.querySelector("#income-plans"),
   reportVariant: document.querySelector("#report-variant"),
   reportMessage: document.querySelector("#report-message"),
   importView: document.querySelector("#accounts-view"),
@@ -91,6 +97,7 @@ let fileRequest = 0;
 const views = {
   overview: "overview-view",
   transactions: "transactions-view",
+  plans: "plans-view",
   reports: "reports-view",
   accounts: "accounts-view",
 };
@@ -575,8 +582,44 @@ function renderTransactions() {
   );
 }
 
+async function loadPlans() {
+  if (!client || !currentUser) return;
+  elements.expensePlans.replaceChildren();
+  elements.incomePlans.replaceChildren();
+  showMessage(elements.plansMessage, "Loading plans…", "loading");
+  const { data, error } = await client.rpc("plan_occurrences_for_month", {
+    p_month: `${navigation.month}-01`,
+  });
+  if (error) return showMessage(elements.plansMessage, "Could not load plans.");
+  clearMessage(elements.plansMessage);
+  const occurrences = data || [];
+  const render = (direction, container) => {
+    const rows = occurrences.filter((item) => item.direction === direction);
+    if (!rows.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "No plans for this month.";
+      container.append(empty);
+      return;
+    }
+    rows.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "account-card plan-row";
+      const name = document.createElement("strong");
+      name.textContent = item.name || "Plan";
+      const amount = document.createElement("span");
+      amount.textContent = formatMoney(item.amount_cent);
+      row.append(name, amount);
+      container.append(row);
+    });
+  };
+  render("expense", elements.expensePlans);
+  render("income", elements.incomePlans);
+}
+
 function showFeature({ focus = false, load = true } = {}) {
   elements.transactionMonth.textContent = formatMonth(navigation.month);
+  elements.planMonth.textContent = formatMonth(navigation.month);
   elements.reportVariant.value = navigation.report;
   elements.reportMessage.textContent = `${navigation.report === "settlement" ? "Settlement" : "Expense summary"} is not available yet. This report is planned.`;
   Object.entries(views).forEach(([view, id]) => {
@@ -593,6 +636,7 @@ function showFeature({ focus = false, load = true } = {}) {
   if (focus)
     document.querySelector(`#${views[navigation.view]} h2[tabindex]`).focus();
   if (load && navigation.view === "accounts") loadAccounts();
+  if (load && navigation.view === "plans") loadPlans();
   if (load && navigation.view === "transactions") {
     loadAccounts();
     loadTransactions();
@@ -1013,6 +1057,11 @@ window.addEventListener("hashchange", () => {
   ledgerOffset = 0;
   if (currentUser) showFeature({ focus: true });
 });
+function changePlanMonth(offset) {
+  navigation.month = shiftMonth(navigation.month, offset);
+  showFeature({ load: false });
+  loadPlans();
+}
 function changeMonth(offset) {
   navigation.month = shiftMonth(navigation.month, offset);
   ledgerOffset = 0;
@@ -1020,6 +1069,8 @@ function changeMonth(offset) {
   loadTransactions();
 }
 elements.previousMonth.addEventListener("click", () => changeMonth(-1));
+elements.previousPlanMonth.addEventListener("click", () => changePlanMonth(-1));
+elements.nextPlanMonth.addEventListener("click", () => changePlanMonth(1));
 elements.nextMonth.addEventListener("click", () => changeMonth(1));
 loadMore.addEventListener("click", () => {
   ledgerOffset = transactions.length;
