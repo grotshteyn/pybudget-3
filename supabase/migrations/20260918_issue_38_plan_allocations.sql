@@ -91,7 +91,11 @@ $$;
 revoke all on function public.allocate_transaction_to_plan(uuid, uuid, bigint, text, uuid) from public, anon;
 grant execute on function public.allocate_transaction_to_plan(uuid, uuid, bigint, text, uuid) to authenticated;
 
-create or replace function public.unallocate_transaction_from_plan(p_transaction_id uuid, p_plan_id uuid)
+create or replace function public.unallocate_transaction_from_plan(
+  p_transaction_id uuid,
+  p_plan_id uuid,
+  p_source text default null
+)
 returns bigint
 language plpgsql
 security invoker
@@ -99,11 +103,18 @@ set search_path = ''
 as $$
 declare v_count bigint;
 begin
+  if p_source is not null and p_source not in ('manual', 'rule') then
+    raise exception 'Invalid allocation source';
+  end if;
   delete from public.plan_allocations
-  where user_id = auth.uid() and transaction_id = p_transaction_id and plan_id = p_plan_id;
+  where user_id = auth.uid()
+    and transaction_id = p_transaction_id
+    and plan_id = p_plan_id
+    and (p_source is null or source = p_source);
   get diagnostics v_count = row_count;
   return v_count;
 end;
 $$;
 revoke all on function public.unallocate_transaction_from_plan(uuid, uuid) from public, anon;
-grant execute on function public.unallocate_transaction_from_plan(uuid, uuid) to authenticated;
+revoke all on function public.unallocate_transaction_from_plan(uuid, uuid, text) from public, anon;
+grant execute on function public.unallocate_transaction_from_plan(uuid, uuid, text) to authenticated;
