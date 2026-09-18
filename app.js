@@ -26,8 +26,6 @@ const elements = {
   userEmail: document.querySelector("#user-email"),
   logoutButton: document.querySelector("#logout-button"),
   navigationLinks: document.querySelectorAll(".app-menu [data-view]"),
-  transactionStatus: document.querySelector("#transaction-status"),
-  transactionSearch: document.querySelector("#transaction-search"),
   transactionMonth: document.querySelector("#transaction-month"),
   previousMonth: document.querySelector("#previous-month"),
   nextMonth: document.querySelector("#next-month"),
@@ -49,12 +47,8 @@ const elements = {
   refreshReconciliation: document.querySelector("#refresh-reconciliation"),
   reconciliationList: document.querySelector("#reconciliation-list"),
   reconciliationMessage: document.querySelector("#reconciliation-message"),
-  refreshTransactions: document.querySelector("#refresh-transactions"),
   transactionsBody: document.querySelector("#transactions-body"),
   transactionsMessage: document.querySelector("#transactions-message"),
-  bookedTotal: document.querySelector("#booked-total"),
-  pendingTotal: document.querySelector("#pending-total"),
-  combinedTotal: document.querySelector("#combined-total"),
   testFieldForm: document.querySelector("#test-field-form"),
   testField: document.querySelector("#test-field"),
   saveFieldButton: document.querySelector("#save-field-button"),
@@ -76,15 +70,7 @@ let ledger = { count: 0, booked: "0", pending: "0", review_count: 0 },
 const pageSize = 50;
 let reviewCandidates = [],
   reviewRequest = 0;
-const ledgerControls = Object.fromEntries(
-  ["account", "direction"].map((k) => [
-    k,
-    document.querySelector("#transaction-" + k),
-  ]),
-);
-const previousPage = document.querySelector("#previous-page"),
-  nextPage = document.querySelector("#next-page"),
-  ledgerPage = document.querySelector("#ledger-page");
+const loadMore = document.querySelector("#load-more");
 let transactionState = "idle";
 let transactionError = "";
 let sessionVersion = 0;
@@ -144,19 +130,15 @@ function readNavigation() {
   const params = new URLSearchParams(query);
   return {
     view: Object.hasOwn(views, view) ? view : "overview",
-    status: ["booked", "pending", "cancelled"].includes(params.get("status"))
-      ? params.get("status")
-      : "all",
+    status: "all",
     account: /^[0-9a-f-]{36}$/i.test(params.get("account") || "")
       ? params.get("account")
       : "",
     month: /^\d{4}-\d{2}$/.test(params.get("month") || "")
       ? params.get("month")
       : currentMonth(),
-    direction: ["income", "expense"].includes(params.get("direction"))
-      ? params.get("direction")
-      : "all",
-    search: (params.get("q") || "").slice(0, 120),
+    direction: "all",
+    search: "",
     report: params.get("report") === "settlement" ? "settlement" : "expenses",
   };
 }
@@ -164,12 +146,7 @@ let navigation = readNavigation();
 
 function navigationHash(view = navigation.view) {
   const params = new URLSearchParams();
-  if (navigation.status !== "all") params.set("status", navigation.status);
-  if (navigation.search) params.set("q", navigation.search);
-  if (navigation.account) params.set("account", navigation.account);
   params.set("month", navigation.month);
-  if (navigation.direction !== "all")
-    params.set("direction", navigation.direction);
   if (navigation.report !== "expenses") params.set("report", navigation.report);
   return `#${view}${params.size ? `?${params}` : ""}`;
 }
@@ -326,14 +303,6 @@ async function loadAccounts() {
     if (error) throw error;
     clearMessage(elements.accountsMessage);
     elements.accountsList.replaceChildren(...data.map(accountCard));
-    ledgerControls.account.replaceChildren(
-      new Option("All accounts", ""),
-      ...data.map(
-        (a) =>
-          new Option(a.display_name + (a.is_active ? "" : " (archived)"), a.id),
-      ),
-    );
-    ledgerControls.account.value = navigation.account;
     if (!data.length)
       showMessage(
         elements.accountsMessage,
@@ -391,7 +360,7 @@ async function loadTransactions() {
   if (!client || !currentUser) return;
   const version = sessionVersion;
   const request = ++transactionsRequest;
-  transactions = [];
+  if (!ledgerOffset) transactions = [];
   transactionState = "loading";
   renderTransactions();
   try {
@@ -413,7 +382,7 @@ async function loadTransactions() {
       ledgerOffset = 0;
       return loadTransactions();
     }
-    transactions = data.rows;
+    transactions = ledgerOffset ? [...transactions, ...data.rows] : data.rows;
     transactionState = "ready";
   } catch {
     if (version !== sessionVersion || request !== transactionsRequest) return;
@@ -427,8 +396,6 @@ async function loadTransactions() {
 function renderTransactions() {
   clearMessage(elements.transactionsMessage);
   const filtered = transactions;
-  const booked = transactionState === "ready" ? BigInt(ledger.booked) : 0n,
-    pending = transactionState === "ready" ? BigInt(ledger.pending) : 0n;
   const rows = filtered.map((transaction) => {
     const row = document.createElement("tr");
     const isNew =
@@ -506,20 +473,9 @@ function renderTransactions() {
     return row;
   });
   elements.transactionsBody.replaceChildren(...rows);
-  elements.bookedTotal.textContent = formatMoney(booked);
-  elements.pendingTotal.textContent = formatMoney(pending);
-  elements.combinedTotal.textContent = formatMoney(booked + pending);
-  ledgerPage.textContent =
-    transactionState === "ready"
-      ? (ledger.count ? ledgerOffset + 1 : 0) +
-        "–" +
-        (ledgerOffset + filtered.length) +
-        " of " +
-        ledger.count
-      : "—";
-  previousPage.disabled = transactionState !== "ready" || !ledgerOffset;
-  nextPage.disabled =
-    transactionState !== "ready" || ledgerOffset + pageSize >= ledger.count;
+  loadMore.hidden =
+    transactionState !== "ready" || transactions.length >= ledger.count;
+  loadMore.disabled = transactionState !== "ready";
   if (transactionState === "loading")
     showMessage(
       elements.transactionsMessage,
@@ -531,13 +487,7 @@ function renderTransactions() {
   else if (!transactions.length)
     showMessage(
       elements.transactionsMessage,
-      navigation.search ||
-        navigation.status !== "all" ||
-        navigation.account ||
-        navigation.month !== currentMonth() ||
-        navigation.direction !== "all"
-        ? "No transactions match these filters."
-        : "No imported transactions yet. Use + to import a bank CSV.",
+      "No transactions in this month.",
       "empty",
     );
   else if (ledger.review_count)
@@ -555,11 +505,7 @@ function renderTransactions() {
 }
 
 function showFeature({ focus = false, load = true } = {}) {
-  elements.transactionStatus.value = navigation.status;
-  elements.transactionSearch.value = navigation.search;
   elements.transactionMonth.textContent = formatMonth(navigation.month);
-  for (const k of Object.keys(ledgerControls))
-    ledgerControls[k].value = navigation[k];
   elements.reportVariant.value = navigation.report;
   elements.reportMessage.textContent = `${navigation.report === "settlement" ? "Settlement" : "Expense summary"} is not available yet. This report is planned.`;
   Object.entries(views).forEach(([view, id]) => {
@@ -601,12 +547,9 @@ function renderSession(session) {
     transactions = [];
     ledgerOffset = 0;
     reviewCandidates = [];
-    ledgerControls.account.replaceChildren(new Option("All accounts", ""));
     if (previousId) {
-      navigation.account = "";
-      navigation.month = currentMonth();
-      navigation.direction = "all";
-    }
+        navigation.month = currentMonth();
+      }
     transactionState = "idle";
     elements.transactionsBody.replaceChildren();
     renderTransactions();
@@ -927,9 +870,6 @@ async function importTransactions() {
       reviewCount || data.rejected ? "warning" : "success",
     );
     navigation.view = "transactions";
-    navigation.status = "all";
-    navigation.search = "";
-    navigation.account = "";
     navigation.month = currentMonth();
     navigation.direction = "all";
     ledgerOffset = 0;
@@ -996,17 +936,6 @@ window.addEventListener("hashchange", () => {
   ledgerOffset = 0;
   if (currentUser) showFeature({ focus: true });
 });
-function updateFilters() {
-  navigation.status = elements.transactionStatus.value;
-  navigation.search = elements.transactionSearch.value.slice(0, 120);
-  for (const k of Object.keys(ledgerControls))
-    navigation[k] = ledgerControls[k].value;
-  ledgerOffset = 0;
-  retainNavigation();
-  loadTransactions();
-}
-for (const c of Object.values(ledgerControls))
-  c.addEventListener("change", updateFilters);
 function changeMonth(offset) {
   navigation.month = shiftMonth(navigation.month, offset);
   ledgerOffset = 0;
@@ -1015,16 +944,10 @@ function changeMonth(offset) {
 }
 elements.previousMonth.addEventListener("click", () => changeMonth(-1));
 elements.nextMonth.addEventListener("click", () => changeMonth(1));
-previousPage.addEventListener("click", () => {
-  ledgerOffset = Math.max(0, ledgerOffset - pageSize);
+loadMore.addEventListener("click", () => {
+  ledgerOffset = transactions.length;
   loadTransactions();
 });
-nextPage.addEventListener("click", () => {
-  ledgerOffset += pageSize;
-  loadTransactions();
-});
-elements.transactionStatus.addEventListener("change", updateFilters);
-elements.transactionSearch.addEventListener("input", updateFilters);
 elements.reportVariant.addEventListener("change", () => {
   navigation.report = elements.reportVariant.value;
   showFeature({ load: false });
@@ -1032,7 +955,6 @@ elements.reportVariant.addEventListener("change", () => {
 elements.refreshAccounts.addEventListener("click", loadAccounts);
 elements.csvFile.addEventListener("change", handleFileSelection);
 elements.importButton.addEventListener("click", importTransactions);
-elements.refreshTransactions.addEventListener("click", loadTransactions);
 elements.refreshReconciliation.addEventListener(
   "click",
   loadReconciliationReviews,
@@ -1061,7 +983,6 @@ elements.logoutButton.addEventListener("click", async () => {
       const { error } = await client.auth.signOut();
       if (error) throw error;
     }
-    navigation.search = "";
     retainNavigation();
     renderSession(null);
   } catch {
