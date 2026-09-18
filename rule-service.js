@@ -7,8 +7,7 @@ export function transactionRuleDate(transaction) {
 export function occurrenceApplies(transaction, occurrence) {
   const date = transactionRuleDate(transaction);
   if (!date || !occurrence) return false;
-  if (occurrence.status === "cancelled" || occurrence.status_override === "cancelled") return false;
-  return date >= occurrence.period_start && date <= occurrence.period_end;
+  return occurrence.occurrence_date === date;
 }
 
 export function chooseOccurrence(transaction, rule, occurrences) {
@@ -32,12 +31,7 @@ export function planAutomaticMatch({ transaction, rules, occurrences = [], exist
   const selected = selectRuleMatch(transaction, rules);
   if (selected.status !== "matched") return selected;
 
-  // Plan occurrences are not persisted on dev yet. Until that feature lands,
-  // a rule can still create a plan-level assignment. Once occurrences are supplied,
-  // applicability becomes mandatory and ambiguous periods remain unresolved.
-  const occurrence = occurrences.length
-    ? chooseOccurrence(transaction, selected.rule, occurrences)
-    : { status: "matched", occurrence: null };
+  const occurrence = chooseOccurrence(transaction, selected.rule, occurrences);
   if (occurrence.status !== "matched") {
     return { ...occurrence, rule: selected.rule };
   }
@@ -53,6 +47,22 @@ export function planAutomaticMatch({ transaction, rules, occurrences = [], exist
       source: "rule",
     },
   };
+}
+
+export async function loadOccurrencesForTransactions(client, transactions) {
+  const months = [...new Set(
+    transactions
+      .map(transactionRuleDate)
+      .filter(Boolean)
+      .map((date) => `${date.slice(0, 7)}-01`),
+  )];
+  const occurrences = [];
+  for (const month of months) {
+    const { data, error } = await client.rpc("plan_occurrences_for_month", { p_month: month });
+    if (error) throw error;
+    occurrences.push(...(data || []));
+  }
+  return occurrences;
 }
 
 export async function loadRules(client) {
@@ -86,12 +96,13 @@ export async function loadExistingMatches(client, transactionIds) {
   return matches;
 }
 
-export async function applyAutomaticRules(client, transactions, occurrences = []) {
+export async function applyAutomaticRules(client, transactions, occurrences = null) {
   if (!transactions.length) return { matched: 0, ambiguous: [], unmatched: [] };
 
-  const [rules, existing] = await Promise.all([
+  const [rules, existing, applicableOccurrences] = await Promise.all([
     loadRules(client),
     loadExistingMatches(client, transactions.map((transaction) => transaction.id)),
+    occurrences === null ? loadOccurrencesForTransactions(client, transactions) : Promise.resolve(occurrences),
   ]);
 
   const allocations = [];
@@ -102,7 +113,7 @@ export async function applyAutomaticRules(client, transactions, occurrences = []
     const result = planAutomaticMatch({
       transaction,
       rules,
-      occurrences,
+      occurrences: applicableOccurrences,
       existingMatch: existing.get(transaction.id) || null,
     });
     if (result.status === "matched") allocations.push(result.match);
