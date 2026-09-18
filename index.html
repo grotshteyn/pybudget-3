@@ -223,55 +223,111 @@
               aria-labelledby="import-title"
             >
               <div class="section-heading">
+                <h2 id="import-title">Import transactions</h2>
+                <button
+                  id="close-import"
+                  class="compact secondary"
+                  type="button"
+                  aria-label="Close import window"
+                >
+                  Close
+                </button>
+              </div>
+              <section class="">
+                <p class="muted">
+                  Choose a Comdirect CSV to add transactions to your accounts.
+                </p>
+                <label class="file-picker" for="csv-file">
+                  <span>Choose Comdirect CSV</span>
+                  <input id="csv-file" type="file" accept=".csv,text/csv" />
+                </label>
+                <div id="import-preview" class="import-preview" hidden="">
+                  <div>
+                    <span>Accounts</span
+                    ><strong id="preview-accounts">0</strong>
+                  </div>
+                  <div>
+                    <span>Transactions</span
+                    ><strong id="preview-transactions">0</strong>
+                  </div>
+                  <div>
+                    <span>Pending</span><strong id="preview-pending">0</strong>
+                  </div>
+                  <div>
+                    <span>Rejected rows</span
+                    ><strong id="preview-errors">0</strong>
+                  </div>
+                </div>
+                <button
+                  id="import-button"
+                  class="primary"
+                  type="button"
+                  disabled=""
+                >
+                  Import transactions
+                </button>
+                <p
+                  id="import-message"
+                  class="notice"
+                  role="status"
+                  aria-live="polite"
+                  hidden=""
+                ></p>
+              </section>
+              <section class="" aria-labelledby="reconciliation-title">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow green">Reconciliation</p>
+                    <h2 id="reconciliation-title">
+                      Transactions needing review
+                    </h2>
+                  </div>
+                  <button
+                    id="refresh-reconciliation"
+                    class="compact secondary"
+                    type="button"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <p class="muted">
+                  When a booked transaction could match more than one pending
+                  transaction, PyBudget waits for you instead of guessing.
+                </p>
+                <p
+                  id="reconciliation-message"
+                  class="notice"
+                  role="status"
+                  aria-live="polite"
+                  hidden=""
+                ></p>
+                <div id="reconciliation-list" class="accounts-list"></div>
+              </section>
+            </dialog>
+            <p
+              id="import-result"
+              class="notice success"
+              role="status"
+              hidden=""
+            ></p>
+            <div class="section-heading">
               <h2 id="transactions-title" tabindex="-1">Transactions</h2>
-              <button
-                type="button"
-                class="compact primary import-plus"
-                data-open-import=""
-                aria-label="Add transactions"
-              >
-                +
-              </button>
+              <button type="button" class="compact primary import-plus" data-open-import="" aria-label="Add transactions">+</button>
             </div>
             <div class="month-navigation" aria-label="Transaction month">
               <button id="previous-month" class="compact secondary" type="button" aria-label="Previous month">‹</button>
               <strong id="transaction-month" aria-live="polite"></strong>
               <button id="next-month" class="compact secondary" type="button" aria-label="Next month">›</button>
             </div>
-            <p
-              id="transactions-message"
-              class="notice"
-              role="status"
-              aria-live="polite"
-              hidden=""
-            ></p>
-            <button
-              id="review-imports"
-              type="button"
-              class="compact secondary"
-              data-open-import=""
-              hidden=""
-            >
-              Review imported transactions
-            </button>
+            <p id="transactions-message" class="notice" role="status" aria-live="polite" hidden=""></p>
+            <button id="review-imports" type="button" class="compact secondary" data-open-import="" hidden="">Review imported transactions</button>
             <div class="table-wrap">
               <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Partner</th>
-                    <th>Account</th>
-                    <th>Status</th>
-                    <th class="amount">Amount</th>
-                    <th>Details</th>
-                  </tr>
-                </thead>
+                <thead><tr><th>Date</th><th>Partner</th><th>Account</th><th>Status</th><th class="amount">Amount</th><th>Details</th></tr></thead>
                 <tbody id="transactions-body"></tbody>
               </table>
             </div>
-            <button id="load-more" class="compact secondary load-more" type="button" hidden>
-              Load more
-            </button>
+            <button id="load-more" class="compact secondary load-more" type="button" hidden="">Load more</button>
           </section>
 
           <section class="card" hidden="">
@@ -303,6 +359,6 @@
 
     <script src="config.js?v=5"></script>
     <script src="importer.js?v=6"></script>
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=10"></script>
   </body>
 </html>
