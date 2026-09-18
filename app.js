@@ -656,8 +656,19 @@ async function loadPlans() {
   if (error) return showMessage(elements.plansMessage, "Could not load plans.");
   clearMessage(elements.plansMessage);
   const occurrences = data || [];
+  const ids = [...new Set(occurrences.map((item) => item.plan_id))];
+  let plansById = new Map();
+  if (ids.length) {
+    const { data: planRows, error: planError } = await client
+      .from("plans")
+      .select("id,name,amount_cent,direction,schedule_type,start_date,end_date,is_active")
+      .in("id", ids);
+    if (planError) return showMessage(elements.plansMessage, "Could not load plan details.");
+    plansById = new Map((planRows || []).map((plan) => [plan.id, plan]));
+  }
+  const detailed = occurrences.map((item) => ({ ...item, ...(plansById.get(item.plan_id) || {}) }));
   const render = (direction, container) => {
-    const rows = occurrences.filter((item) => item.direction === direction);
+    const rows = detailed.filter((item) => item.direction === direction);
     if (!rows.length) {
       const empty = document.createElement("p");
       empty.className = "muted";
