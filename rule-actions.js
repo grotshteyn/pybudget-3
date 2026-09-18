@@ -20,21 +20,8 @@ export async function unallocateTransaction(client, transactionId, planId, sourc
   return data;
 }
 
-export async function createManualPlanMatch(client, userId, transactionId, planId) {
-  const payload = {
-    user_id: userId,
-    transaction_id: transactionId,
-    plan_id: planId,
-    rule_id: null,
-    source: "manual",
-  };
-  const { data, error } = await client
-    .from("transaction_plan_matches")
-    .upsert(payload, { onConflict: "transaction_id" })
-    .select("id,transaction_id,plan_id,rule_id,source")
-    .single();
-  if (error) throw error;
-  return data;
+export async function createManualPlanMatch(client, userId, transactionId, planId, amountCent = null) {
+  return allocateTransaction(client, transactionId, planId, amountCent, "manual", null);
 }
 
 export async function createPartnerRule(client, userId, transaction, planId) {
