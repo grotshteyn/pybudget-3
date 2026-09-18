@@ -32,7 +32,12 @@ export function planAutomaticMatch({ transaction, rules, occurrences = [], exist
   const selected = selectRuleMatch(transaction, rules);
   if (selected.status !== "matched") return selected;
 
-  const occurrence = chooseOccurrence(transaction, selected.rule, occurrences);
+  // Plan occurrences are not persisted on dev yet. Until that feature lands,
+  // a rule can still create a plan-level assignment. Once occurrences are supplied,
+  // applicability becomes mandatory and ambiguous periods remain unresolved.
+  const occurrence = occurrences.length
+    ? chooseOccurrence(transaction, selected.rule, occurrences)
+    : { status: "matched", occurrence: null };
   if (occurrence.status !== "matched") {
     return { ...occurrence, rule: selected.rule };
   }
