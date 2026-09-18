@@ -16,7 +16,7 @@ export async function loadImportedTransactions(client, batchId) {
   return [...unique.values()];
 }
 
-export async function applyRulesAfterImport(client, importResult, { occurrences = [] } = {}) {
+export async function applyRulesAfterImport(client, importResult, { occurrences = null } = {}) {
   if (!importResult?.batch_id || importResult.already_imported) {
     return { skipped: true, reason: "no_new_import", matched: 0, ambiguous: [], unmatched: [] };
   }
