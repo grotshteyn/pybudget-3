@@ -38,6 +38,20 @@ const elements = {
   plansMessage: document.querySelector("#plans-message"),
   expensePlans: document.querySelector("#expense-plans"),
   incomePlans: document.querySelector("#income-plans"),
+  addPlan: document.querySelector("#add-plan"),
+  planDialog: document.querySelector("#plan-dialog"),
+  planForm: document.querySelector("#plan-form"),
+  planDialogTitle: document.querySelector("#plan-dialog-title"),
+  planId: document.querySelector("#plan-id"),
+  planName: document.querySelector("#plan-name"),
+  planAmount: document.querySelector("#plan-amount"),
+  planDirection: document.querySelector("#plan-direction"),
+  planSchedule: document.querySelector("#plan-schedule"),
+  planStart: document.querySelector("#plan-start"),
+  planEnd: document.querySelector("#plan-end"),
+  planFormMessage: document.querySelector("#plan-form-message"),
+  deactivatePlan: document.querySelector("#deactivate-plan"),
+  closePlan: document.querySelector("#close-plan"),
   reportVariant: document.querySelector("#report-variant"),
   reportMessage: document.querySelector("#report-message"),
   importView: document.querySelector("#accounts-view"),
@@ -582,6 +596,55 @@ function renderTransactions() {
   );
 }
 
+function openPlanEditor(plan = null) {
+  elements.planForm.reset();
+  clearMessage(elements.planFormMessage);
+  elements.planId.value = plan?.id || plan?.plan_id || "";
+  elements.planDialogTitle.textContent = plan ? "Edit plan" : "Add plan";
+  elements.planName.value = plan?.name || "";
+  elements.planAmount.value = plan ? (Number(plan.amount_cent) / 100).toFixed(2) : "";
+  elements.planDirection.value = plan?.direction || "expense";
+  elements.planSchedule.value = plan?.schedule_type || "monthly";
+  elements.planStart.value = plan?.start_date || `${navigation.month}-01`;
+  elements.planEnd.value = plan?.end_date || "";
+  elements.deactivatePlan.hidden = !plan;
+  elements.planDialog.showModal();
+}
+async function savePlan(event) {
+  event.preventDefault();
+  const amountCent = Math.round(Number(elements.planAmount.value) * 100);
+  if (!elements.planName.value.trim() || !Number.isInteger(amountCent) || amountCent <= 0)
+    return showMessage(elements.planFormMessage, "Enter a name and a positive amount.");
+  const values = {
+    user_id: currentUser.id,
+    name: elements.planName.value.trim(),
+    amount_cent: amountCent,
+    direction: elements.planDirection.value,
+    schedule_type: elements.planSchedule.value,
+    start_date: elements.planStart.value,
+    end_date: elements.planEnd.value || null,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+  };
+  let query = elements.planId.value
+    ? client.from("plans").update(values).eq("id", elements.planId.value)
+    : client.from("plans").insert(values);
+  const { error } = await query;
+  if (error) return showMessage(elements.planFormMessage, error.message || "Could not save plan.");
+  elements.planDialog.close();
+  await loadPlans();
+}
+async function deactivatePlan() {
+  if (!elements.planId.value) return;
+  const { error } = await client.from("plans").update({
+    is_active: false,
+    updated_at: new Date().toISOString(),
+  }).eq("id", elements.planId.value);
+  if (error) return showMessage(elements.planFormMessage, error.message || "Could not deactivate plan.");
+  elements.planDialog.close();
+  await loadPlans();
+}
+
 async function loadPlans() {
   if (!client || !currentUser) return;
   elements.expensePlans.replaceChildren();
@@ -609,7 +672,12 @@ async function loadPlans() {
       name.textContent = item.name || "Plan";
       const amount = document.createElement("span");
       amount.textContent = formatMoney(item.amount_cent);
-      row.append(name, amount);
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "compact secondary";
+      edit.textContent = "Edit";
+      edit.addEventListener("click", () => openPlanEditor(item));
+      row.append(name, amount, edit);
       container.append(row);
     });
   };
@@ -1068,6 +1136,10 @@ function changeMonth(offset) {
   showFeature({ load: false });
   loadTransactions();
 }
+elements.addPlan.addEventListener("click", () => openPlanEditor());
+elements.closePlan.addEventListener("click", () => elements.planDialog.close());
+elements.planForm.addEventListener("submit", savePlan);
+elements.deactivatePlan.addEventListener("click", deactivatePlan);
 elements.previousMonth.addEventListener("click", () => changeMonth(-1));
 elements.previousPlanMonth.addEventListener("click", () => changePlanMonth(-1));
 elements.nextPlanMonth.addEventListener("click", () => changePlanMonth(1));
