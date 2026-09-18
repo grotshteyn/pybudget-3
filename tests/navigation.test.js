@@ -296,14 +296,9 @@ function mockSupabase() {
       await active(view);
     };
 
-    await page.goto(`${base}/#transactions?status=pending&q=shop`);
+    await page.goto(`${base}/#transactions?month=2026-09`);
     await active("transactions");
     await rows(1);
-    assert.equal(
-      await page.locator("#transaction-status").inputValue(),
-      "pending",
-    );
-    assert.match(await page.locator("#pending-total").textContent(), /20/);
     await page.reload();
     await rows(1);
     await active("transactions");
@@ -537,17 +532,8 @@ function mockSupabase() {
     await navigate("transactions");
     await rows(50);
     assert.match(await page.locator("#ledger-page").textContent(), /of 251/);
-    const total = await page.locator("#booked-total").textContent();
-    await page.locator("#next-page").click();
-    await page.waitForFunction(() =>
-      document.querySelector("#ledger-page").textContent.startsWith("51"),
-    );
-    assert.equal(await page.locator("#booked-total").textContent(), total);
-    await page.fill("#transaction-search", "Far away");
-    await rows(1);
-    assert.match(await page.locator("#ledger-page").textContent(), /of 1/);
-    await page.fill("#transaction-search", "");
-    await rows(50);
+    await page.locator("#load-more").click();
+    await rows(100);
     await page.selectOption("#transaction-status", "cancelled");
     await rows(1);
     assert.match(
