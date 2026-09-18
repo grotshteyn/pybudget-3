@@ -368,3 +368,19 @@ body.signed-in td:nth-child(6)::before { content:'Details'; }
 .new-transaction { background:#edf6ee; }
 #review-imports { margin-bottom:16px; }
 @media(max-width:760px) { body.signed-in tr.new-transaction { background:#edf6ee; } .import-dialog { padding:16px; } }
+
+.month-navigation {
+  display: grid;
+  grid-template-columns: auto minmax(10rem, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  text-align: center;
+}
+.month-navigation strong {
+  font-size: 1.1rem;
+}
+.month-navigation button {
+  min-width: 44px;
+  font-size: 1.35rem;
+}
