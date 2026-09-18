@@ -8,7 +8,7 @@
       content="PyBudget authentication and bank transaction import"
     />
     <title>PyBudget</title>
-    <link rel="stylesheet" href="styles.css?v=9" />
+    <link rel="stylesheet" href="styles.css?v=10" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
   <body>
@@ -217,6 +217,20 @@
             aria-labelledby="transactions-title"
             hidden=""
           >
+            <dialog id="assign-dialog" class="import-dialog" aria-labelledby="assign-title">
+              <div class="section-heading">
+                <h2 id="assign-title">Assign transaction</h2>
+                <button id="close-assign" class="compact secondary" type="button">Close</button>
+              </div>
+              <p class="muted">Choose the target plan. Plan browsing will replace the ID field when plan persistence is connected.</p>
+              <label for="assign-plan">Plan ID</label>
+              <input id="assign-plan" type="text" inputmode="text" autocomplete="off" placeholder="Plan UUID" />
+              <div class="assignment-actions">
+                <button id="assign-once" class="primary" type="button">Only this transaction</button>
+                <button id="assign-partner" class="secondary" type="button">All transactions from this partner</button>
+              </div>
+              <p id="assign-message" class="notice" role="status" aria-live="polite" hidden=""></p>
+            </dialog>
             <dialog
               id="import-dialog"
               class="import-dialog"
@@ -359,6 +373,6 @@
 
     <script src="config.js?v=5"></script>
     <script src="importer.js?v=6"></script>
-    <script type="module" src="app.js?v=11"></script>
+    <script type="module" src="app.js?v=12"></script>
   </body>
 </html>
