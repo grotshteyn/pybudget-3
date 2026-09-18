@@ -461,6 +461,7 @@ async function assignCurrentTransaction(createRule = false) {
       assignmentTransaction.id,
       planId,
     );
+    await allocateTransaction(client, assignmentTransaction.id, planId);
     elements.assignDialog.close();
     showMessage(
       elements.transactionsMessage,
@@ -667,8 +668,15 @@ async function loadPlans() {
     plansById = new Map((planRows || []).map((plan) => [plan.id, plan]));
   }
   const detailed = occurrences.map((item) => ({ ...item, ...(plansById.get(item.plan_id) || {}) }));
+  const bounds = monthBounds(navigation.month);
   const { data: allocations, error: allocationError } = ids.length
-    ? await client.from("plan_allocations").select("plan_id,amount_cent,transactions(status)").in("plan_id", ids)
+    ? await client
+        .from("plan_allocations")
+        .select("plan_id,amount_cent,transactions!inner(status,transaction_date,booking_date,value_date)")
+        .in("plan_id", ids)
+        .neq("transactions.status", "cancelled")
+        .gte("transactions.transaction_date", bounds.start)
+        .lte("transactions.transaction_date", bounds.end)
     : { data: [], error: null };
   if (allocationError) return showMessage(elements.plansMessage, "Could not load plan allocations.");
   const actualByPlan = new Map();
