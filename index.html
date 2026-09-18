@@ -333,9 +333,10 @@
             </div>
             <p class="muted">
               Totals cover all matching transactions across every page.
-              Cancelled rows are excluded from totals. Dates use purchase date,
-              then booking date, then value date; undated rows are excluded when
-              filtering dates. These totals show movement, not account balances.
+              Cancelled rows are excluded from totals. Transactions are shown one
+              calendar month at a time, using purchase date, then booking date,
+              then value date. Undated rows are excluded. These totals show
+              movement, not account balances.
             </p>
             <div class="transaction-filters">
               <div>
@@ -357,6 +358,25 @@
                 />
               </div>
             </div>
+            <div class="month-navigation" aria-label="Transaction month">
+              <button
+                id="previous-month"
+                class="compact secondary"
+                type="button"
+                aria-label="Previous month"
+              >
+                ‹
+              </button>
+              <strong id="transaction-month" aria-live="polite"></strong>
+              <button
+                id="next-month"
+                class="compact secondary"
+                type="button"
+                aria-label="Next month"
+              >
+                ›
+              </button>
+            </div>
             <div class="transaction-filters">
               <div>
                 <label for="transaction-account">Account</label
@@ -371,14 +391,6 @@
                   <option value="income">Income</option>
                   <option value="expense">Expenses</option>
                 </select>
-              </div>
-              <div>
-                <label for="transaction-start">From</label
-                ><input id="transaction-start" type="date" />
-              </div>
-              <div>
-                <label for="transaction-end">To</label
-                ><input id="transaction-end" type="date" />
               </div>
             </div>
             <p class="muted">
