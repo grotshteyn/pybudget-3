@@ -530,7 +530,7 @@ function mockSupabase() {
         id: "p" + i,
         status: i === 250 ? "cancelled" : "booked",
         amount_cent: 100,
-        booking_date: "2026-03-12",
+        booking_date: "2026-09-12",
         partner: i === 249 ? "Far away shop" : "Synthetic payment",
       }));
     });
