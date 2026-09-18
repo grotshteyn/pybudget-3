@@ -37,6 +37,10 @@ function mockSupabase() {
         is_active: true,
       },
     ],
+    plans: [
+      { plan_id: "p1", name: "Groceries", occurrence_date: "2026-09-01", amount_cent: 50000, direction: "expense" },
+      { plan_id: "p2", name: "Salary", occurrence_date: "2026-09-01", amount_cent: 300000, direction: "income" },
+    ],
     error: false,
     delay: 0,
     calls: [],
@@ -110,6 +114,10 @@ function mockSupabase() {
       return builder;
     },
     async rpc(name, payload) {
+      if (name === "plan_occurrences_for_month") {
+        state.calls.push(name);
+        return { data: structuredClone(state.plans), error: state.error ? { message: "Synthetic outage" } : null };
+      }
       if (name === "read_transaction_ledger") {
         const selected = state.rows.filter(
           (r) =>
@@ -312,6 +320,11 @@ function mockSupabase() {
       .click();
     await active("transactions");
     await rows(2);
+    await navigate("plans");
+    await page.waitForFunction(() => document.querySelectorAll("#expense-plans .plan-row").length === 1 && document.querySelectorAll("#income-plans .plan-row").length === 1);
+    assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
+    await page.locator("#next-plan-month").click();
+    assert.match(await page.locator("#plan-month").textContent(), /October 2026/);
     await navigate("overview");
     assert.match(
       await page.locator("#overview-view").textContent(),
