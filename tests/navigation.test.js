@@ -41,6 +41,10 @@ function mockSupabase() {
       { id: "p1", plan_id: "p1", name: "Groceries", occurrence_date: "2026-09-01", amount_cent: 50000, direction: "expense", schedule_type: "monthly", start_date: "2026-01-01", end_date: null, is_active: true },
       { id: "p2", plan_id: "p2", name: "Salary", occurrence_date: "2026-09-01", amount_cent: 300000, direction: "income", schedule_type: "monthly", start_date: "2026-01-01", end_date: null, is_active: true },
     ],
+    allocations: [
+      { plan_id: "p1", amount_cent: 2000, transactions: { status: "booked", transaction_date: null, booking_date: "2026-09-13", value_date: null } },
+      { plan_id: "p1", amount_cent: 9000, transactions: { status: "booked", transaction_date: null, booking_date: "2026-08-13", value_date: null } },
+    ],
     error: false,
     delay: 0,
     calls: [],
@@ -76,6 +80,9 @@ function mockSupabase() {
           ids = value;
           return this;
         },
+        neq() {
+          return this;
+        },
         eq(_field, value) {
           accountId = value;
           return this;
@@ -93,7 +100,11 @@ function mockSupabase() {
                 ? (state.reviews || []).slice(from, to + 1)
                 : table === "transactions"
                   ? state.rows.filter((r) => !ids || ids.includes(r.id))
-                  : state.accounts,
+                  : table === "plans"
+                    ? state.plans.filter((p) => !ids || ids.includes(p.id))
+                    : table === "plan_allocations"
+                      ? state.allocations.filter((a) => !ids || ids.includes(a.plan_id))
+                      : state.accounts,
           );
           const error = state.error;
           return new Promise((done) =>
@@ -114,6 +125,11 @@ function mockSupabase() {
       return builder;
     },
     async rpc(name, payload) {
+      if (name === "allocate_transaction_to_plan") {
+        state.calls.push(name);
+        state.allocationRpc = payload;
+        return { data: { id: "allocation-1", ...payload }, error: null };
+      }
       if (name === "plan_occurrences_for_month") {
         state.calls.push(name);
         return { data: structuredClone(state.plans), error: state.error ? { message: "Synthetic outage" } : null };
@@ -323,6 +339,7 @@ function mockSupabase() {
     await navigate("plans");
     await page.waitForFunction(() => document.querySelectorAll("#expense-plans .plan-row").length === 1 && document.querySelectorAll("#income-plans .plan-row").length === 1);
     assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
+    assert.match(await page.locator("#expense-plans .plan-row").textContent(), /€20,00 \/ €500,00/);
     await page.locator("#expense-plans .plan-row button").click();
     assert.equal(await page.locator("#plan-dialog-title").textContent(), "Edit plan");
     assert.equal(await page.locator("#plan-name").inputValue(), "Groceries");
