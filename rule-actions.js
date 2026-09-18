@@ -10,10 +10,11 @@ export async function allocateTransaction(client, transactionId, planId, amountC
   return data;
 }
 
-export async function unallocateTransaction(client, transactionId, planId) {
+export async function unallocateTransaction(client, transactionId, planId, source = null) {
   const { data, error } = await client.rpc("unallocate_transaction_from_plan", {
     p_transaction_id: transactionId,
     p_plan_id: planId,
+    p_source: source,
   });
   if (error) throw error;
   return data;
