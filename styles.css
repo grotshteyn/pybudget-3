@@ -384,3 +384,7 @@ body.signed-in td:nth-child(6)::before { content:'Details'; }
   min-width: 44px;
   font-size: 1.35rem;
 }
+
+.assignment-actions { display:grid; gap:10px; margin-top:16px; }
+.assignment-actions .primary { margin:0; }
+.transaction-assign { margin-top:8px; }
