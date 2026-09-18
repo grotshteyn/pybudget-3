@@ -223,209 +223,20 @@
               aria-labelledby="import-title"
             >
               <div class="section-heading">
-                <h2 id="import-title">Import transactions</h2>
-                <button
-                  id="close-import"
-                  class="compact secondary"
-                  type="button"
-                  aria-label="Close import window"
-                >
-                  Close
-                </button>
-              </div>
-              <section class="">
-                <p class="muted">
-                  Choose a Comdirect CSV to add transactions to your accounts.
-                </p>
-                <label class="file-picker" for="csv-file">
-                  <span>Choose Comdirect CSV</span>
-                  <input id="csv-file" type="file" accept=".csv,text/csv" />
-                </label>
-                <div id="import-preview" class="import-preview" hidden="">
-                  <div>
-                    <span>Accounts</span
-                    ><strong id="preview-accounts">0</strong>
-                  </div>
-                  <div>
-                    <span>Transactions</span
-                    ><strong id="preview-transactions">0</strong>
-                  </div>
-                  <div>
-                    <span>Pending</span><strong id="preview-pending">0</strong>
-                  </div>
-                  <div>
-                    <span>Rejected rows</span
-                    ><strong id="preview-errors">0</strong>
-                  </div>
-                </div>
-                <button
-                  id="import-button"
-                  class="primary"
-                  type="button"
-                  disabled=""
-                >
-                  Import transactions
-                </button>
-                <p
-                  id="import-message"
-                  class="notice"
-                  role="status"
-                  aria-live="polite"
-                  hidden=""
-                ></p>
-              </section>
-              <section class="" aria-labelledby="reconciliation-title">
-                <div class="section-heading">
-                  <div>
-                    <p class="eyebrow green">Reconciliation</p>
-                    <h2 id="reconciliation-title">
-                      Transactions needing review
-                    </h2>
-                  </div>
-                  <button
-                    id="refresh-reconciliation"
-                    class="compact secondary"
-                    type="button"
-                  >
-                    Refresh
-                  </button>
-                </div>
-                <p class="muted">
-                  When a booked transaction could match more than one pending
-                  transaction, PyBudget waits for you instead of guessing.
-                </p>
-                <p
-                  id="reconciliation-message"
-                  class="notice"
-                  role="status"
-                  aria-live="polite"
-                  hidden=""
-                ></p>
-                <div id="reconciliation-list" class="accounts-list"></div>
-              </section>
-            </dialog>
-            <p
-              id="import-result"
-              class="notice success"
-              role="status"
-              hidden=""
-            ></p>
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow green">Ledger</p>
-                <h2 id="transactions-title" tabindex="-1">All transactions</h2>
-              </div>
-              <button
-                id="refresh-transactions"
-                class="compact secondary"
-                type="button"
-              >
-                Refresh
-              </button>
+              <h2 id="transactions-title" tabindex="-1">Transactions</h2>
               <button
                 type="button"
                 class="compact primary import-plus"
                 data-open-import=""
-                aria-label="Import transactions"
+                aria-label="Add transactions"
               >
                 +
               </button>
             </div>
-            <p class="muted">
-              Totals cover all matching transactions across every page.
-              Cancelled rows are excluded from totals. Transactions are shown one
-              calendar month at a time, using purchase date, then booking date,
-              then value date. Undated rows are excluded. These totals show
-              movement, not account balances.
-            </p>
-            <div class="transaction-filters">
-              <div>
-                <label for="transaction-status">Status</label
-                ><select id="transaction-status">
-                  <option value="all">All statuses</option>
-                  <option value="booked">Booked</option>
-                  <option value="pending">Pending</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-              <div>
-                <label for="transaction-search">Search transactions</label
-                ><input
-                  id="transaction-search"
-                  type="search"
-                  maxlength="120"
-                  placeholder="Partner, description, or account"
-                />
-              </div>
-            </div>
             <div class="month-navigation" aria-label="Transaction month">
-              <button
-                id="previous-month"
-                class="compact secondary"
-                type="button"
-                aria-label="Previous month"
-              >
-                ‹
-              </button>
+              <button id="previous-month" class="compact secondary" type="button" aria-label="Previous month">‹</button>
               <strong id="transaction-month" aria-live="polite"></strong>
-              <button
-                id="next-month"
-                class="compact secondary"
-                type="button"
-                aria-label="Next month"
-              >
-                ›
-              </button>
-            </div>
-            <div class="transaction-filters">
-              <div>
-                <label for="transaction-account">Account</label
-                ><select id="transaction-account">
-                  <option value="">All accounts</option>
-                </select>
-              </div>
-              <div>
-                <label for="transaction-direction">Direction</label
-                ><select id="transaction-direction">
-                  <option value="all">All movements</option>
-                  <option value="income">Income</option>
-                  <option value="expense">Expenses</option>
-                </select>
-              </div>
-            </div>
-            <p class="muted">
-              Category filters will become available with category setup. All
-              current transactions are uncategorized.
-            </p>
-            <div class="ledger-pagination">
-              <button
-                id="previous-page"
-                class="compact secondary"
-                type="button"
-                disabled=""
-              >
-                Previous</button
-              ><span id="ledger-page" role="status">—</span
-              ><button
-                id="next-page"
-                class="compact secondary"
-                type="button"
-                disabled=""
-              >
-                Next
-              </button>
-            </div>
-            <div class="ledger-totals">
-              <div>
-                <span>Booked</span><strong id="booked-total">€0.00</strong>
-              </div>
-              <div>
-                <span>Pending</span><strong id="pending-total">€0.00</strong>
-              </div>
-              <div>
-                <span>Net including pending</span
-                ><strong id="combined-total">€0.00</strong>
-              </div>
+              <button id="next-month" class="compact secondary" type="button" aria-label="Next month">›</button>
             </div>
             <p
               id="transactions-message"
@@ -458,6 +269,9 @@
                 <tbody id="transactions-body"></tbody>
               </table>
             </div>
+            <button id="load-more" class="compact secondary load-more" type="button" hidden>
+              Load more
+            </button>
           </section>
 
           <section class="card" hidden="">
