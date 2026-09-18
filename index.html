@@ -123,6 +123,7 @@
                 >Transactions</a
               >
 
+              <a class="menu-button" data-view="plans" href="#plans">Plans</a>
               <a class="menu-button" data-view="reports" href="#reports"
                 >Reports</a
               >
@@ -155,6 +156,27 @@
               are planned.
             </p>
             <a href="#transactions">Review transactions</a>
+          </section>
+
+          <section id="plans-view" class="card feature-view" aria-labelledby="plans-title" hidden="">
+            <div class="section-heading">
+              <h2 id="plans-title" tabindex="-1">Plans</h2>
+              <button type="button" class="compact primary" aria-label="Add plan" disabled>+</button>
+            </div>
+            <div class="month-navigation" aria-label="Plan month">
+              <button id="previous-plan-month" class="compact secondary" type="button" aria-label="Previous plan month">‹</button>
+              <strong id="plan-month" aria-live="polite"></strong>
+              <button id="next-plan-month" class="compact secondary" type="button" aria-label="Next plan month">›</button>
+            </div>
+            <p id="plans-message" class="notice" role="status" aria-live="polite" hidden=""></p>
+            <section aria-labelledby="expense-plans-title">
+              <h3 id="expense-plans-title">Expenses</h3>
+              <div id="expense-plans" class="accounts-list"></div>
+            </section>
+            <section aria-labelledby="income-plans-title">
+              <h3 id="income-plans-title">Income</h3>
+              <div id="income-plans" class="accounts-list"></div>
+            </section>
           </section>
 
           <section
