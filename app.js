@@ -690,17 +690,19 @@ async function loadPlans() {
   const { data: allocations, error: allocationError } = ids.length
     ? await client
         .from("plan_allocations")
-        .select("plan_id,amount_cent,transactions!inner(status,transaction_date,booking_date,value_date)")
+        .select("plan_id,transaction_id,amount_cent,transactions!inner(id,status,transaction_date,booking_date,value_date,partner,description)")
         .in("plan_id", ids)
         .neq("transactions.status", "cancelled")
     : { data: [], error: null };
   if (allocationError) return showMessage(elements.plansMessage, "Could not load plan allocations.");
   const actualByPlan = new Map();
+  const monthlyAllocations = new Map();
   (allocations || []).forEach((allocation) => {
     const transaction = allocation.transactions;
     const date = transaction?.transaction_date || transaction?.booking_date || transaction?.value_date;
     if (transaction?.status === "cancelled" || !date || date < bounds.start || date > bounds.end) return;
     actualByPlan.set(allocation.plan_id, (actualByPlan.get(allocation.plan_id) || 0) + Number(allocation.amount_cent));
+    monthlyAllocations.set(allocation.plan_id, [...(monthlyAllocations.get(allocation.plan_id) || []), allocation]);
   });
   const render = (direction, container) => {
     const rows = detailed.filter((item) => item.direction === direction);
@@ -726,6 +728,36 @@ async function loadPlans() {
       edit.textContent = "Edit";
       edit.addEventListener("click", () => openPlanEditor(item));
       row.append(name, amount, edit);
+      const assigned = monthlyAllocations.get(item.plan_id) || [];
+      if (assigned.length) {
+        const details = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.textContent = `${assigned.length} allocated transaction${assigned.length === 1 ? "" : "s"}`;
+        details.append(summary);
+        assigned.forEach((allocation) => {
+          const line = document.createElement("div");
+          line.className = "assignment-actions";
+          const text = document.createElement("span");
+          text.textContent = `${allocation.transactions?.partner || allocation.transactions?.description || "Transaction"} · ${formatMoney(allocation.amount_cent)}`;
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "compact secondary";
+          remove.textContent = "Unassign";
+          remove.addEventListener("click", async () => {
+            remove.disabled = true;
+            try {
+              await unallocateTransaction(client, allocation.transaction_id, item.plan_id);
+              await loadPlans();
+            } catch {
+              remove.disabled = false;
+              showMessage(elements.plansMessage, "Could not unassign transaction.");
+            }
+          });
+          line.append(text, remove);
+          details.append(line);
+        });
+        row.append(details);
+      }
       container.append(row);
     });
   };
