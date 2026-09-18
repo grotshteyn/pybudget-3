@@ -10,14 +10,13 @@ const rule = {
   conditions: [{ field: "partner", operator: "contains", value: "edeka" }],
 };
 const september = {
-  id: "o1", plan_id: "p1", period_start: "2026-09-01", period_end: "2026-09-30",
+  plan_id: "p1", occurrence_date: "2026-09-18", amount_cent: 50000, direction: "expense",
 };
 assert.equal(occurrenceApplies(transaction, september), true);
-assert.equal(occurrenceApplies(transaction, { ...september, period_start: "2026-10-01", period_end: "2026-10-31" }), false);
-assert.equal(occurrenceApplies(transaction, { ...september, status_override: "cancelled" }), false);
-assert.equal(chooseOccurrence(transaction, rule, [september]).occurrence.id, "o1");
+assert.equal(occurrenceApplies(transaction, { ...september, occurrence_date: "2026-10-18" }), false);
+assert.equal(chooseOccurrence(transaction, rule, [september]).occurrence.occurrence_date, "2026-09-18");
 assert.equal(chooseOccurrence(transaction, rule, []).status, "unmatched");
-assert.equal(chooseOccurrence(transaction, rule, [september, { ...september, id: "o2" }]).status, "ambiguous");
+assert.equal(chooseOccurrence(transaction, rule, [september, { ...september }]).status, "ambiguous");
 
 const result = planAutomaticMatch({ transaction, rules: [rule], occurrences: [september] });
 assert.equal(result.status, "matched");
@@ -27,6 +26,6 @@ assert.deepEqual(result.match, {
 
 const manual = { id: "m1", transaction_id: "t1", plan_id: "other", source: "manual" };
 assert.equal(planAutomaticMatch({ transaction, rules: [rule], occurrences: [september], existingMatch: manual }).status, "manual");
-assert.equal(planAutomaticMatch({ transaction, rules: [rule], occurrences: [] }).status, "matched");
+assert.equal(planAutomaticMatch({ transaction, rules: [rule], occurrences: [] }).status, "unmatched");
 
 console.log("Rule service tests passed.");
