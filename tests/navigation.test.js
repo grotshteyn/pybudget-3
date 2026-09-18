@@ -44,7 +44,7 @@ function mockSupabase() {
       { id: "p3", plan_id: "p3", name: "Weekly fun", occurrence_date: "2026-09-08", amount_cent: 1000, direction: "expense", schedule_type: "weekly", start_date: "2026-09-01", end_date: null, is_active: true },
     ],
     allocations: [
-      { plan_id: "p1", transaction_id: "t2", amount_cent: 2000, transactions: { id: "t2", status: "booked", transaction_date: null, booking_date: "2026-09-13", value_date: null, partner: "Example shop", description: "Card purchase" } },
+      { plan_id: "p1", transaction_id: "t2", amount_cent: 2000, transactions: { id: "t2", status: "pending", transaction_date: null, booking_date: "2026-09-13", value_date: null, partner: "Example shop", description: "Card purchase" } },
       { plan_id: "p1", amount_cent: 9000, transactions: { status: "booked", transaction_date: null, booking_date: "2026-08-13", value_date: null } },
     ],
     error: false,
@@ -347,7 +347,7 @@ function mockSupabase() {
     await navigate("plans");
     await page.waitForFunction(() => document.querySelectorAll("#expense-plans .plan-row").length === 2 && document.querySelectorAll("#income-plans .plan-row").length === 1);
     assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
-    assert.match(await page.locator("#expense-plans .plan-row").first().textContent(), /€20,00 \/ €500,00/);
+    assert.match(await page.locator("#expense-plans .plan-row").first().textContent(), /€20,00 \/ €500,00/, "pending allocations count toward Plan actuals");
     assert.match(await page.locator("#expense-plans").textContent(), /€0,00 \/ €20,00/);
     await page.locator("#expense-plans details summary").click();
     assert.match(await page.locator("#expense-plans details").textContent(), /Example shop/);
