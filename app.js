@@ -667,10 +667,13 @@ async function loadPlans() {
     plansById = new Map((planRows || []).map((plan) => [plan.id, plan]));
   }
   const detailed = occurrences.map((item) => ({ ...item, ...(plansById.get(item.plan_id) || {}) }));
-  const { data: allocations, error: allocationError } = ids.length\n    ? await client.from("plan_allocations").select("plan_id,amount_cent,transactions(status)").in("plan_id", ids)\n    : { data: [], error: null };
+  const { data: allocations, error: allocationError } = ids.length
+    ? await client.from("plan_allocations").select("plan_id,amount_cent,transactions(status)").in("plan_id", ids)
+    : { data: [], error: null };
   if (allocationError) return showMessage(elements.plansMessage, "Could not load plan allocations.");
   const actualByPlan = new Map();
-  (allocations || []).forEach((allocation) => {\n    if (allocation.transactions?.status === "cancelled") return;
+  (allocations || []).forEach((allocation) => {
+    if (allocation.transactions?.status === "cancelled") return;
     actualByPlan.set(allocation.plan_id, (actualByPlan.get(allocation.plan_id) || 0) + Number(allocation.amount_cent));
   });
   const render = (direction, container) => {
