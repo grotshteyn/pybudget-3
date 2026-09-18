@@ -685,7 +685,17 @@ async function loadPlans() {
     if (planError) return showMessage(elements.plansMessage, "Could not load plan details.");
     plansById = new Map((planRows || []).map((plan) => [plan.id, plan]));
   }
-  const detailed = occurrences.map((item) => ({ ...item, ...(plansById.get(item.plan_id) || {}) }));
+  const monthlyPlans = [...occurrences.reduce((byPlan, occurrence) => {
+    const plan = plansById.get(occurrence.plan_id) || {};
+    const existing = byPlan.get(occurrence.plan_id);
+    if (existing) existing.amount_cent += Number(occurrence.amount_cent);
+    else byPlan.set(occurrence.plan_id, {
+      ...occurrence,
+      ...plan,
+      amount_cent: Number(occurrence.amount_cent),
+    });
+    return byPlan;
+  }, new Map()).values()];
   const bounds = monthBounds(navigation.month);
   const { data: allocations, error: allocationError } = ids.length
     ? await client
@@ -705,7 +715,7 @@ async function loadPlans() {
     monthlyAllocations.set(allocation.plan_id, [...(monthlyAllocations.get(allocation.plan_id) || []), allocation]);
   });
   const render = (direction, container) => {
-    const rows = detailed.filter((item) => item.direction === direction);
+    const rows = monthlyPlans.filter((item) => item.direction === direction);
     if (!rows.length) {
       const empty = document.createElement("p");
       empty.className = "muted";
