@@ -26,3 +26,13 @@ for (const token of [
 
 assert.ok(!schedule.includes("insert into public.plan_occurrences"), "occurrences must not be materialized");
 console.log("Plan foundation and scheduling SQL contract tests passed");
+
+const allocationSql = fs.readFileSync(path.join(root, "supabase/migrations/20260918_issue_38_plan_allocations.sql"), "utf8");
+assert.match(allocationSql, /allocate_transaction_to_plan/);
+assert.match(allocationSql, /for update/i);
+assert.match(allocationSql, /cancelled transactions cannot be allocated/i);
+assert.match(allocationSql, /allocation exceeds transaction amount/i);
+assert.match(allocationSql, /plan_allocations_manual_unique_idx/);
+assert.match(allocationSql, /on delete cascade/i);
+assert.match(allocationSql, /security invoker/i);
+console.log("Plan allocation SQL contracts passed.");
