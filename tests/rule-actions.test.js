@@ -5,7 +5,7 @@ const actions = fs.readFileSync(new URL("../rule-actions.js", import.meta.url), 
 const app = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");
 const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
-assert.match(actions, /source: "manual"/);
+assert.match(actions, /allocateTransaction\(client, transactionId, planId, amountCent, "manual", null\)/);
 assert.match(actions, /field: "partner"/);
 assert.match(actions, /operator: "contains"/);
 assert.doesNotMatch(actions, /transaction_plan_matches/);
