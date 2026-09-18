@@ -1,5 +1,5 @@
 import { applyRulesAfterImport } from "./rule-import-orchestrator.js";
-import { allocateTransaction, createManualPlanMatch, createPartnerRule } from "./rule-actions.js";
+import { allocateTransaction, createManualPlanMatch, createPartnerRule, unallocateTransaction } from "./rule-actions.js";
 
 const config = window.PYBUDGET_CONFIG || {};
 const configured = Boolean(
@@ -79,6 +79,7 @@ const elements = {
   assignDialog: document.querySelector("#assign-dialog"),
   assignTitle: document.querySelector("#assign-title"),
   assignPlan: document.querySelector("#assign-plan"),
+  assignAmount: document.querySelector("#assign-amount"),
   assignMessage: document.querySelector("#assign-message"),
   assignOnce: document.querySelector("#assign-once"),
   assignPartner: document.querySelector("#assign-partner"),
@@ -426,22 +427,36 @@ async function loadTransactions() {
 }
 
 
-function openAssignment(transaction) {
+async function openAssignment(transaction) {
   assignmentTransaction = transaction;
   elements.assignTitle.textContent =
     "Assign " + (transaction.partner || transaction.description || "transaction");
-  elements.assignPlan.value = "";
+  elements.assignPlan.replaceChildren();
+  elements.assignAmount.value = (Math.abs(Number(transaction.amount_cent)) / 100).toFixed(2);
   clearMessage(elements.assignMessage);
   elements.assignPartner.hidden = !transaction.partner;
   elements.assignPartner.textContent = transaction.partner
     ? 'All transactions from "' + transaction.partner + '"'
     : "Create partner rule";
   elements.assignDialog.showModal();
+  const { data, error } = await client
+    .from("plans")
+    .select("id,name,direction")
+    .eq("is_active", true)
+    .order("name");
+  if (assignmentTransaction !== transaction) return;
+  if (error) return showMessage(elements.assignMessage, "Could not load plans.");
+  (data || []).forEach((plan) => {
+    const option = document.createElement("option");
+    option.value = plan.id;
+    option.textContent = plan.name;
+    elements.assignPlan.append(option);
+  });
+  if (!data?.length) showMessage(elements.assignMessage, "Create a plan first.");
 }
 
 function selectedPlanId() {
-  const value = elements.assignPlan.value.trim();
-  return /^[0-9a-f-]{36}$/i.test(value) ? value : null;
+  return elements.assignPlan.value || null;
 }
 
 async function assignCurrentTransaction(createRule = false) {
@@ -461,7 +476,10 @@ async function assignCurrentTransaction(createRule = false) {
       assignmentTransaction.id,
       planId,
     );
-    await allocateTransaction(client, assignmentTransaction.id, planId);
+    const amountCent = Math.round(Number(elements.assignAmount.value) * 100);
+    if (!Number.isInteger(amountCent) || amountCent <= 0)
+      throw new Error("Enter a positive allocation amount.");
+    await allocateTransaction(client, assignmentTransaction.id, planId, amountCent);
     elements.assignDialog.close();
     showMessage(
       elements.transactionsMessage,
