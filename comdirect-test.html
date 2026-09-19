@@ -25,24 +25,6 @@
 let flow=PyBudgetComdirectFlow.createFlow(PyBudgetComdirectFlow.createMockTransport({delay:150}));
 const config=window.PYBUDGET_CONFIG||{};
 const supabaseClient=(config.supabaseUrl&&config.supabaseAnonKey)?window.supabase.createClient(config.supabaseUrl,config.supabaseAnonKey):null;
-function realTransport(){
-  return {
-    async start(credentials){
-      if(!supabaseClient) throw new Error("dev_supabase_not_configured");
-      const {data:{session}}=await supabaseClient.auth.getSession();
-      if(!session) throw new Error("sign_in_to_dev_pybudget_first");
-      const {data,error}=await supabaseClient.functions.invoke("comdirect-connection-test",{body:{action:"account-diagnostic",...credentials}});
-      if(error) throw new Error("diagnostic_request_failed");
-      if(!data?.ok) throw new Error(data?.error_code||"diagnostic_failed");
-      return {status:"awaiting_2fa",challenge_id:"server-completed",challenge_type:"P_TAN_PUSH",
-        challenge_text:"The server completed the out-of-band approval and account discovery. Confirm to reveal the sanitized result.",_diagnostic:data};
-    },
-    async confirm(){
-      const s=flow.snapshot();
-      return {status:"complete",diagnostic:realTransport.lastDiagnostic||{ok:false,credentials_retained:false,transactions_imported:0,error_code:"missing_diagnostic"}};
-    }
-  };
-}
 const status=document.querySelector("#status"), twofa=document.querySelector("#twofa"), challenge=document.querySelector("#challenge");
 function render(s){status.textContent=JSON.stringify(s,null,2);twofa.hidden=s.state!=="awaiting_2fa";challenge.textContent=s.challenge?.text||""}
 document.querySelector("#credentials").addEventListener("submit",async(e)=>{e.preventDefault();const submitter=e.submitter;const mode=submitter?.value||"mock";const f=new FormData(e.currentTarget);const credentials=Object.fromEntries(f.entries());delete credentials.mode;render({state:"authenticating"});if(mode==="real"){
