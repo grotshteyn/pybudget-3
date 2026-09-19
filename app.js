@@ -966,13 +966,30 @@ async function resolveReview(reviewId, action, candidateId = null) {
     b.disabled = true;
   });
   try {
-    const { error } = await client.rpc("resolve_reconciliation_review", {
+    const { data: resolution, error } = await client.rpc("resolve_reconciliation_review", {
       p_review_id: reviewId,
       p_action: action,
       p_candidate_transaction_id: candidateId,
     });
     if (error) throw error;
     if (version !== sessionVersion) return;
+
+    // The RPC returns the canonical transaction after reconciliation. Match
+    // only that settled identity; rule failures must not undo reconciliation.
+    try {
+      const resolvedId = resolution?.transaction_id || null;
+      if (resolvedId) {
+        const { data: resolvedTransactions, error: transactionError } = await client
+          .from("transactions")
+          .select("id,account_id,status,amount_cent,booking_date,value_date,transaction_date,description,partner")
+          .eq("id", resolvedId);
+        if (transactionError) throw transactionError;
+        await applyAutomaticRules(client, resolvedTransactions || []);
+      }
+    } catch (ruleError) {
+      console.error("Rule post-processing failed after reconciliation resolution.", ruleError);
+    }
+
     await Promise.all([loadReconciliationReviews(), loadTransactions()]);
   } catch {
     if (version === sessionVersion)
