@@ -237,3 +237,103 @@ assert.throws(
 );
 
 console.log("Plan occurrence and group financial read-model tests passed.");
+
+
+{
+  const result = buildMonthFinancialReadModel({
+    month: "2026-09",
+    plans: [plan("weekly", "Weekly")],
+    occurrences: [
+      occurrence("weekly", "2026-09-03", 2000),
+      occurrence("weekly", "2026-09-10", 2000),
+    ],
+    allocations: [
+      allocation("on-date", "weekly", 500, "2026-09-03"),
+      allocation("later-a", "weekly", 700, "2026-09-09"),
+      allocation("later-b", "weekly", 300, "2026-09-09", "pending", "rule"),
+      allocation("next", "weekly", 800, "2026-09-10"),
+      allocation("cancelled", "weekly", 900, "2026-09-10", "cancelled"),
+    ],
+  });
+  assert.equal(result.occurrences[0].actual_cent, 1500);
+  assert.equal(result.occurrences[0].allocations.length, 3);
+  assert.equal(result.occurrences[1].actual_cent, 800);
+  assert.equal(result.occurrences[1].allocations.length, 1);
+}
+
+{
+  const groups = [
+    { id: "root", name: "Root", parent_group_id: null },
+    { id: "expense-child", name: "Expense child", parent_group_id: "root" },
+    { id: "income-child", name: "Income child", parent_group_id: "root" },
+  ];
+  const result = buildMonthFinancialReadModel({
+    month: "2026-09",
+    groups,
+    plans: [
+      plan("expense-a", "Expense A", "expense", "expense-child"),
+      plan("expense-b", "Expense B", "expense", "expense-child"),
+      plan("income-a", "Income A", "income", "income-child"),
+      plan("income-b", "Income B", "income", "income-child"),
+    ],
+    occurrences: [
+      occurrence("expense-a", "2026-09-01", 10000, "expense"),
+      occurrence("expense-b", "2026-09-01", 10000, "expense"),
+      occurrence("income-a", "2026-09-01", 20000, "income"),
+      occurrence("income-b", "2026-09-01", 20000, "income"),
+    ],
+    allocations: [
+      allocation("expense-over", "expense-a", 13000, "2026-09-02"),
+      allocation("expense-under", "expense-b", 4000, "2026-09-02", "pending"),
+      allocation("income-over", "income-a", 25000, "2026-09-02"),
+      allocation("income-under", "income-b", 5000, "2026-09-02", "pending", "rule"),
+    ],
+  });
+  const root = result.groups.find((group) => group.id === "root");
+  assert.equal(root.expense_earmarked_cent, 6000);
+  assert.equal(root.expense_overrun_cent, 3000);
+  assert.equal(root.income_receivable_cent, 15000);
+  assert.equal(root.income_windfall_cent, 5000);
+}
+
+{
+  const depth = 1500;
+  const groups = Array.from({ length: depth }, (_, index) => ({
+    id: `deep-${index}`,
+    name: `Deep ${index}`,
+    parent_group_id: index === 0 ? null : `deep-${index - 1}`,
+  }));
+  const result = buildMonthFinancialReadModel({
+    month: "2026-09",
+    groups,
+    plans: [plan("deep-plan", "Deep plan", "expense", `deep-${depth - 1}`)],
+    occurrences: [occurrence("deep-plan", "2026-09-01", 1234)],
+    allocations: [],
+  });
+  const root = result.groups.find((group) => group.id === "deep-0");
+  assert.equal(root.expense_earmarked_cent, 1234);
+  assert.deepEqual(root.descendant_occurrence_ids, ["deep-plan:2026-09-01"]);
+}
+
+{
+  const transaction = {
+    id: "shared-tx",
+    status: "booked",
+    amount_cent: -10000,
+    transaction_date: "2026-09-05",
+  };
+  const result = buildMonthFinancialReadModel({
+    month: "2026-09",
+    plans: [plan("split-a", "Split A"), plan("split-b", "Split B")],
+    occurrences: [
+      occurrence("split-a", "2026-09-01", 6000),
+      occurrence("split-b", "2026-09-01", 4000),
+    ],
+    allocations: [
+      { id: "split-1", plan_id: "split-a", transaction_id: "shared-tx", amount_cent: 6000, source: "manual", transaction },
+      { id: "split-2", plan_id: "split-b", transaction_id: "shared-tx", amount_cent: 4000, source: "manual", transaction },
+    ],
+  });
+  assert.deepEqual(result.occurrences.map((row) => row.actual_cent), [6000, 4000]);
+  assert.ok(result.occurrences.every((row) => row.materialized));
+}
