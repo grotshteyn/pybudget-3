@@ -143,8 +143,8 @@ async function runAccountDiagnostic(fetcher: typeof fetch, credentials: Credenti
   let first: TokenSet | null = null;
   let secondary: TokenSet | null = null;
   let providerSession: string | null = null;
-  let terminationAttempted = false;
-  let terminationSucceeded = false;
+  // No provider session-termination request is sent yet: its exact semantics are intentionally
+  // left for the first controlled DEV verification rather than guessing a potentially destructive call.
   try {
     first = await passwordToken(fetcher, credentials);
     if (!first?.access_token) throw new Error("oauth_access_token_missing");
@@ -173,23 +173,12 @@ async function runAccountDiagnostic(fetcher: typeof fetch, credentials: Credenti
     const accounts = await listAccounts(fetcher, secondary.access_token, clientSessionId);
     return diagnostic("accounts", { ok: true, account_count: accounts.length });
   } finally {
-    // Do not claim provider termination support until verified. If DELETE is unsupported,
-    // credentials/tokens are still discarded when this invocation returns.
-    if (providerSession && (secondary?.access_token || first?.access_token)) {
-      terminationAttempted = true;
-      try {
-        terminationSucceeded = await terminateSession(fetcher, secondary?.access_token || first!.access_token, clientSessionId, providerSession);
-      } catch (_) {
-        terminationSucceeded = false;
-      }
-    }
     first = null;
     secondary = null;
+    providerSession = null;
     credentials.client_secret = "";
     credentials.pin = "";
-    if (terminationAttempted && !terminationSucceeded) {
-      // Deliberately no logging of provider responses or credential-bearing state.
-    }
+    // Deliberately no logging of provider responses or credential-bearing state.
   }
 }
 
