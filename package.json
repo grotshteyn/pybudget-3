@@ -2,7 +2,9 @@
   "name": "pybudget-3",
   "private": true,
   "scripts": {
-    "test": "node tests/importer.test.js && node tests/navigation.test.js"
+    "test": "node tests/importer.test.js && node tests/reconciliation-sql.test.js && node tests/navigation.test.js && node tests/rules.test.js && node tests/rules-sql.test.js && node tests/rule-service.test.js && node tests/rule-import-orchestrator.test.js && node tests/rule-actions.test.js && node tests/plans-sql.test.js && node tests/plan-read-model.test.js && node tests/issue-39-sql.test.js && node tests/issue-40-groups-sql.test.js && node tests/plan-group-service.test.js"
   },
-  "devDependencies": { "playwright": "1.62.1" }
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
 }

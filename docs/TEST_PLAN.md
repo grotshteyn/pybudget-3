@@ -140,3 +140,7 @@ The deferred test phase is complete when:
 4. Two-user RLS isolation is verified.
 5. No real bank data or secrets are committed.
 6. The production migration and frontend commit are identified and reproducible.
+
+## Issue 6/7 development acceptance — 2026-09-13
+
+See [release evidence and boundaries](ISSUES_6_7_RELEASE.md). Import/reconciliation and complete ledger behavior have passed automated frontend and live development database acceptance. The older checklists above predate these checks; category/budget/balance/report work and #31 remain separate. Production release acceptance is tracked in the promotion PR.

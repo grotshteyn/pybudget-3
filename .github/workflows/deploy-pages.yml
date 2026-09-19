@@ -56,6 +56,10 @@ jobs:
           cp preview/styles.css site/dev/
           cp preview/app.js site/dev/
           cp preview/importer.js site/dev/
+          cp preview/rules.js site/dev/
+          cp preview/rule-service.js site/dev/
+          cp preview/rule-import-orchestrator.js site/dev/
+          cp preview/rule-actions.js site/dev/
           cp preview/config.dev.js site/dev/config.js
 
       - name: Configure Pages
