@@ -456,7 +456,13 @@ function mockSupabase() {
     await page.locator("#add-plan").click();
     assert.equal(await page.locator("#plan-dialog-title").textContent(), "Add plan");
     assert.equal(await page.locator("#plan-start").inputValue(), "2026-09-01");
-    await page.locator("#close-plan").click();
+    await page.locator("#plan-name").fill("Browser-created plan");
+    await page.locator("#plan-amount").fill("42.50");
+    await page.locator("#plan-direction").selectOption("expense");
+    await page.locator("#plan-schedule").selectOption("monthly");
+    await page.locator("#plan-form").evaluate((form) => form.requestSubmit());
+    await page.waitForFunction(() => !document.querySelector("#plan-dialog")?.open);
+    assert.equal(await page.evaluate(() => fixture.plans.some((plan) => plan.name === "Browser-created plan")), true);
     await page.locator("#next-plan-month").click();
     assert.match(await page.locator("#plan-month").textContent(), /October 2026/);
     await navigate("overview");
