@@ -404,7 +404,8 @@ function mockSupabase() {
     assert.match(await page.locator("#assign-title").textContent(), /Example salary/);
     assert.equal(await page.locator("#assign-include").isChecked(), true);
     assert.equal(await page.locator("#assign-rule").isChecked(), false);
-    assert.equal(await page.locator("#assign-group").isDisabled(), false);
+    await page.waitForFunction(() => document.querySelector("#assign-group")?.disabled === false);
+    assert.equal(await page.locator("#assign-plan").inputValue(), "p1");
     assert.equal(await page.locator("#assign-group").inputValue(), "g1");
     await page.selectOption("#assign-plan", "p2");
     assert.equal(await page.locator("#assign-group").inputValue(), "");
