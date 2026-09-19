@@ -470,8 +470,9 @@ async function assignCurrentTransaction(createRule = false) {
     const amountCent = Math.round(Number(elements.assignAmount.value) * 100);
     if (!Number.isInteger(amountCent) || amountCent <= 0)
       throw new Error("Enter a positive allocation amount.");
+    let partnerRule = null;
     if (createRule) {
-      await createPartnerRule(client, currentUser.id, assignmentTransaction, planId);
+      partnerRule = await createPartnerRule(client, currentUser.id, assignmentTransaction, planId);
     }
     await createManualPlanMatch(
       client,
@@ -480,6 +481,18 @@ async function assignCurrentTransaction(createRule = false) {
       planId,
       amountCent,
     );
+    if (partnerRule) {
+      try {
+        await applyPartnerRuleToExistingTransactions(
+          client,
+          partnerRule,
+          assignmentTransaction.partner,
+          applyAutomaticRules,
+        );
+      } catch (ruleError) {
+        console.error("Partner rule created, but bulk application failed.", ruleError);
+      }
+    }
     elements.assignDialog.close();
     showMessage(
       elements.transactionsMessage,
