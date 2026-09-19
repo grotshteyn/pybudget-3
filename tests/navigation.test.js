@@ -111,7 +111,10 @@ function mockSupabase() {
           const rows = Array.isArray(value) ? value : [value];
           const collections = { plans: state.plans, plan_groups: state.groups, transactions: state.rows };
           const collection = collections[table];
-          if (collection) rows.forEach((row, index) => collection.push({ id: row.id || `synthetic-${table}-${collection.length + index + 1}`, ...row }));
+          if (collection) rows.forEach((row, index) => {
+            const id = row.id || `synthetic-${table}-${collection.length + index + 1}`;
+            collection.push(table === "plans" ? { id, plan_id: id, ...row } : { id, ...row });
+          });
           return this;
         },
         upsert(value) {
@@ -130,7 +133,7 @@ function mockSupabase() {
                   : table === "plan_groups"
                     ? (state.groups || [])
                     : table === "plans"
-                      ? [...new Map(state.plans.map((p) => [p.id, p])).values()].map((p) => ({ ...p, id: p.plan_id || p.id })).filter((p) => !ids || ids.includes(p.id))
+                      ? [...new Map(state.plans.map((p) => [p.plan_id || p.id, p])).values()].map((p) => ({ ...p, id: p.plan_id || p.id })).filter((p) => !ids || ids.includes(p.id))
                       : table === "plan_allocations"
                         ? state.allocations.filter((a) => !ids || ids.includes(a[inField || "plan_id"]))
                         : state.accounts;
