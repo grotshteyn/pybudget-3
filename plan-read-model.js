@@ -1,4 +1,4 @@
-import { transactionRuleDate } from "./rule-service.js";
+import { chooseOccurrence, transactionRuleDate } from "./rule-service.js";
 
 function cents(value) {
   const number = Number(value ?? 0);
@@ -102,10 +102,13 @@ export function buildMonthFinancialReadModel({
     const transactionDate = transactionRuleDate(transaction);
     if (!transactionDate || monthKey(transactionDate) !== selectedMonth) continue;
 
-    const candidates = (occurrencesByPlan.get(allocation.plan_id) || [])
-      .filter((occurrence) => occurrence.occurrence_date <= transactionDate);
-    const occurrence = candidates.at(-1);
-    if (!occurrence) continue;
+    const assignment = chooseOccurrence(
+      transaction,
+      { plan_id: allocation.plan_id },
+      occurrencesByPlan.get(allocation.plan_id) || [],
+    );
+    if (assignment.status !== "matched") continue;
+    const occurrence = assignment.occurrence;
 
     const amount = cents(allocation.amount_cent);
     occurrence.actual_cent += amount;
@@ -157,43 +160,53 @@ export function buildMonthFinancialReadModel({
   }
 
   const groupStates = new Map();
-  const visiting = new Set();
-  function aggregateGroup(groupId) {
-    if (groupStates.has(groupId)) return groupStates.get(groupId);
-    if (visiting.has(groupId)) throw new Error(`Cycle detected in plan groups at ${groupId}.`);
-    visiting.add(groupId);
-
-    const group = groupById.get(groupId);
-    const totals = emptyTotals();
-    const occurrenceIds = [];
-    for (const occurrence of directOccurrences.get(groupId) || []) {
-      addTotals(totals, occurrenceTotals(occurrence));
-      occurrenceIds.push(occurrence.id);
+  const visitState = new Map();
+  for (const startGroup of groups || []) {
+    if (visitState.get(startGroup.id) === 2) continue;
+    const stack = [{ id: startGroup.id, expanded: false }];
+    while (stack.length) {
+      const frame = stack.pop();
+      const state = visitState.get(frame.id) || 0;
+      if (frame.expanded) {
+        const group = groupById.get(frame.id);
+        const totals = emptyTotals();
+        const occurrenceIds = [];
+        for (const occurrence of directOccurrences.get(frame.id) || []) {
+          addTotals(totals, occurrenceTotals(occurrence));
+          occurrenceIds.push(occurrence.id);
+        }
+        const childGroupIds = childGroups.get(frame.id) || [];
+        for (const childId of childGroupIds) {
+          const child = groupStates.get(childId);
+          if (!child) throw new Error(`Unable to aggregate child group ${childId}.`);
+          addTotals(totals, child);
+          occurrenceIds.push(...child.descendant_occurrence_ids);
+        }
+        groupStates.set(frame.id, {
+          id: group.id,
+          name: group.name,
+          parent_group_id: group.parent_group_id ?? null,
+          sort_order: group.sort_order ?? 0,
+          ...totals,
+          child_group_ids: [...childGroupIds],
+          direct_occurrence_ids: (directOccurrences.get(frame.id) || []).map((row) => row.id),
+          descendant_occurrence_ids: occurrenceIds,
+        });
+        visitState.set(frame.id, 2);
+        continue;
+      }
+      if (state === 2) continue;
+      if (state === 1) throw new Error(`Cycle detected in plan groups at ${frame.id}.`);
+      visitState.set(frame.id, 1);
+      stack.push({ id: frame.id, expanded: true });
+      const children = childGroups.get(frame.id) || [];
+      for (let index = children.length - 1; index >= 0; index -= 1) {
+        const childId = children[index];
+        if (visitState.get(childId) === 1) throw new Error(`Cycle detected in plan groups at ${childId}.`);
+        if (visitState.get(childId) !== 2) stack.push({ id: childId, expanded: false });
+      }
     }
-
-    const childGroupIds = childGroups.get(groupId) || [];
-    for (const childId of childGroupIds) {
-      const child = aggregateGroup(childId);
-      addTotals(totals, child);
-      occurrenceIds.push(...child.descendant_occurrence_ids);
-    }
-
-    visiting.delete(groupId);
-    const state = {
-      id: group.id,
-      name: group.name,
-      parent_group_id: group.parent_group_id ?? null,
-      sort_order: group.sort_order ?? 0,
-      ...totals,
-      child_group_ids: [...childGroupIds],
-      direct_occurrence_ids: (directOccurrences.get(groupId) || []).map((row) => row.id),
-      descendant_occurrence_ids: occurrenceIds,
-    };
-    groupStates.set(groupId, state);
-    return state;
   }
-
-  for (const group of groups || []) aggregateGroup(group.id);
 
   return {
     month: selectedMonth,
