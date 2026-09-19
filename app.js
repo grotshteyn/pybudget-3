@@ -823,8 +823,11 @@ function renderPlanWorkspace(model) {
     const row=document.createElement("button"); row.type="button"; row.className="account-card plan-row group-row";
     const name=document.createElement("strong"); name.textContent=group.name;
     const state=document.createElement("span");
-    state.textContent=`Earmarked ${formatMoney(group.expense_earmarked_cent)} · Overrun ${formatMoney(group.expense_overrun_cent)}`+
-      (group.income_receivable_cent||group.income_windfall_cent?` · Receivable ${formatMoney(group.income_receivable_cent)} · Windfall ${formatMoney(group.income_windfall_cent)}`:"");
+    const hasExpense=group.expense_planned_cent!==0||group.expense_actual_cent!==0;
+    const hasIncome=group.income_planned_cent!==0||group.income_actual_cent!==0;
+    const expenseState=`Expenses: Earmarked ${formatMoney(group.expense_earmarked_cent)} · Overrun ${formatMoney(group.expense_overrun_cent)}`;
+    const incomeState=`Income: Receivable ${formatMoney(group.income_receivable_cent)} · Windfall ${formatMoney(group.income_windfall_cent)}`;
+    state.textContent=hasExpense&&hasIncome?`${expenseState} · ${incomeState}`:hasIncome?incomeState:expenseState;
     row.append(name,state); row.addEventListener("click",()=>{activePlanGroupId=group.id;renderPlanWorkspace(model);}); elements.workspaceGroups.append(row);
   });
   level.occurrences.forEach((item)=>{
