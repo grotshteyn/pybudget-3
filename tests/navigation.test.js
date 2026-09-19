@@ -591,6 +591,8 @@ function mockSupabase() {
           id: "r1",
           booked_payload: { partner: "Review shop", amount_cent: 100 },
           candidate_transaction_ids: ["p249"],
+          status: "open",
+          created_at: "2026-09-19T12:00:00Z",
         },
       ];
     });
