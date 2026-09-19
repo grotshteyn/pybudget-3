@@ -398,3 +398,52 @@ console.log("Plan occurrence and group financial read-model tests passed.");
     rule_id: "rule-render",
   }]);
 }
+
+
+{
+  const transactions = [
+    { id: "unmatched-expense", status: "booked", amount_cent: -2500, transaction_date: "2026-09-05", description: "Coffee", partner: "Cafe" },
+    { id: "matched", status: "pending", amount_cent: -1000, booking_date: "2026-09-06", description: "Matched" },
+    { id: "cancelled", status: "cancelled", amount_cent: -500, transaction_date: "2026-09-07" },
+    { id: "other-month", status: "booked", amount_cent: -700, transaction_date: "2026-08-31" },
+  ];
+  const result = buildMonthFinancialReadModel({
+    month: "2026-09",
+    plans: [plan("p", "Plan")],
+    occurrences: [occurrence("p", "2026-09-01", 1000)],
+    transactions,
+    allocations: [{
+      id: "alloc-matched",
+      plan_id: "p",
+      transaction_id: "matched",
+      amount_cent: 1000,
+      source: "manual",
+      transaction: transactions[1],
+    }],
+  });
+  assert.deepEqual(result.unmatched_transactions.map((row) => row.id), ["unmatched-expense"]);
+  assert.deepEqual(result.level().unmatched_transactions.map((row) => row.id), ["unmatched-expense"]);
+  assert.deepEqual(result.level().unmatched_transactions[0], {
+    id: "unmatched-expense",
+    status: "booked",
+    amount_cent: -2500,
+    booking_date: null,
+    value_date: null,
+    transaction_date: "2026-09-05",
+    description: "Coffee",
+    partner: "Cafe",
+  });
+}
+
+{
+  const result = buildMonthFinancialReadModel({
+    month: "2026-09",
+    groups: [{ id: "g", name: "Group", parent_group_id: null }],
+    plans: [],
+    occurrences: [],
+    allocations: [],
+    transactions: [{ id: "root-only", status: "booked", amount_cent: -100, transaction_date: "2026-09-01" }],
+  });
+  assert.equal(result.level().unmatched_transactions.length, 1);
+  assert.deepEqual(result.level("g").unmatched_transactions, []);
+}
