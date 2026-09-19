@@ -502,6 +502,9 @@ function createPlanFromAssignment() {
     includeCurrent: elements.assignInclude.checked,
     createRule: elements.assignRule.checked,
   };
+  // Closing the assignment dialog fires its close event, which normally clears
+  // assignmentTransaction. Open the Plan dialog only after that close lifecycle
+  // has completed so nested modal state cannot swallow the new dialog.
   elements.assignDialog.close();
   openPlanEditor();
   elements.planName.value = transaction.partner || transaction.description || "";
@@ -1446,6 +1449,6 @@ elements.assignPlan.addEventListener("change", () => {
 elements.assignNewPlan.addEventListener("click", createPlanFromAssignment);
 elements.closeAssign.addEventListener("click", () => elements.assignDialog.close());
 elements.assignDialog.addEventListener("close", () => {
-  assignmentTransaction = null;
+  if (!planCreationContext) assignmentTransaction = null;
   clearMessage(elements.assignMessage);
 });
