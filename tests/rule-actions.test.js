@@ -11,7 +11,7 @@ assert.match(actions, /operator: "contains"/);
 assert.doesNotMatch(actions, /transaction_plan_matches/);
 assert.match(actions, /return allocateTransaction/);
 assert.match(app, /createManualPlanMatch/);
-assert.match(app, /createPartnerRule/);
+assert.match(app, /createPartnerRule/);\nassert.match(actions, /applyPartnerRuleToExistingTransactions/);\nassert.match(actions, /\.neq\("status", "cancelled"\)/);\nassert.match(actions, /\.ilike\("partner"/);\nassert.match(app, /applyPartnerRuleToExistingTransactions/);\nassert.match(app, /Rule post-processing failed after reconciliation resolution/);\nassert.match(app, /resolution\?\.transaction_id/);
 assert.match(html, /Only this transaction/);
 assert.match(html, /All transactions from this partner/);
 
