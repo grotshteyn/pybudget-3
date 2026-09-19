@@ -38,10 +38,13 @@ function mockSupabase() {
       },
     ],
     plans: [
-      { id: "p1", plan_id: "p1", name: "Groceries", group_id: null, occurrence_date: "2026-09-01", amount_cent: 50000, direction: "expense", schedule_type: "monthly", start_date: "2026-01-01", end_date: null, is_active: true },
+      { id: "p1", plan_id: "p1", name: "Groceries", group_id: "g1", occurrence_date: "2026-09-01", amount_cent: 50000, direction: "expense", schedule_type: "monthly", start_date: "2026-01-01", end_date: null, is_active: true },
       { id: "p2", plan_id: "p2", name: "Salary", group_id: null, occurrence_date: "2026-09-01", amount_cent: 300000, direction: "income", schedule_type: "monthly", start_date: "2026-01-01", end_date: null, is_active: true },
       { id: "p3", plan_id: "p3", name: "Weekly fun", group_id: null, occurrence_date: "2026-09-01", amount_cent: 1000, direction: "expense", schedule_type: "weekly", start_date: "2026-09-01", end_date: null, is_active: true },
       { id: "p3", plan_id: "p3", name: "Weekly fun", group_id: null, occurrence_date: "2026-09-08", amount_cent: 1000, direction: "expense", schedule_type: "weekly", start_date: "2026-09-01", end_date: null, is_active: true },
+    ],
+    groups: [
+      { id: "g1", name: "Household", parent_group_id: null, sort_order: 0 },
     ],
     allocations: [
       { id: "alloc-1", plan_id: "p1", transaction_id: "t2", amount_cent: 2000, source: "manual", rule_id: null, transactions: { id: "t2", status: "pending", amount_cent: -2000, transaction_date: null, booking_date: "2026-09-13", value_date: null, partner: "Example shop", description: "Card purchase" } },
