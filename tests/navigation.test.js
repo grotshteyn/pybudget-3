@@ -376,7 +376,9 @@ function mockSupabase() {
     );
     assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Earmarked/);
+    assert.match(await page.locator("#workspace-occurrences").textContent(), /Expected|Matched/);
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Example shop/);
+    assert.match(await page.locator("#workspace-groups").textContent(), /Expenses: Earmarked/);
     await page.locator("#workspace-occurrences .occurrence-edit").first().click();
     await page.locator("#plan-dialog").waitFor({ state: "visible" });
     assert.equal(await page.locator("#plan-dialog-title").textContent(), "Edit plan");
