@@ -290,14 +290,14 @@
                 <h2 id="assign-title">Assign transaction</h2>
                 <button id="close-assign" class="compact secondary" type="button">Close</button>
               </div>
-              <p class="muted">Choose a plan and optionally allocate only part of this transaction.</p>
+              <p class="muted">Connect this transaction to an existing Plan, or create a new Plan from it.</p>
               <label for="assign-plan">Plan</label>
               <select id="assign-plan"></select>
-              <label for="assign-amount">Amount (€)</label>
-              <input id="assign-amount" type="number" min="0.01" step="0.01" />
+              <button id="assign-new-plan" class="secondary" type="button">Create new Plan</button>
+              <label class="checkbox-row"><input id="assign-include" type="checkbox" checked /> Include this transaction in the Plan</label>
+              <label class="checkbox-row"><input id="assign-rule" type="checkbox" /> Create a Rule for similar transactions</label>
               <div class="assignment-actions">
-                <button id="assign-once" class="primary" type="button">Only this transaction</button>
-                <button id="assign-partner" class="secondary" type="button">All transactions from this partner</button>
+                <button id="assign-once" class="primary" type="button">Save assignment</button>
               </div>
               <p id="assign-message" class="notice" role="status" aria-live="polite" hidden=""></p>
             </dialog>
