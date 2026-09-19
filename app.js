@@ -763,7 +763,11 @@ function renderPlanWorkspace(model) {
   elements.workspaceBreadcrumb.replaceChildren();
   const root=document.createElement("button"); root.type="button"; root.className="text-button"; root.textContent="Plans";
   root.addEventListener("click",()=>{activePlanGroupId=null;renderPlanWorkspace(model);}); elements.workspaceBreadcrumb.append(root);
-  if(activePlanGroupId){const group=model.groups.find(g=>g.id===activePlanGroupId); const label=document.createElement("span"); label.textContent=" / "+(group?.name||"Group"); elements.workspaceBreadcrumb.append(label);}
+  if(activePlanGroupId){
+    const byId=new Map(model.groups.map(g=>[g.id,g])), trail=[]; let cursor=byId.get(activePlanGroupId);
+    while(cursor){trail.unshift(cursor); cursor=cursor.parent_group_id?byId.get(cursor.parent_group_id):null;}
+    trail.forEach((group,index)=>{const sep=document.createElement("span");sep.textContent=" / ";elements.workspaceBreadcrumb.append(sep);const crumb=document.createElement("button");crumb.type="button";crumb.className="text-button";crumb.textContent=group.name;crumb.setAttribute("aria-current",index===trail.length-1?"location":"false");crumb.addEventListener("click",()=>{activePlanGroupId=group.id;renderPlanWorkspace(model);});elements.workspaceBreadcrumb.append(crumb);});
+  }
   level.groups.forEach((group)=>{
     const row=document.createElement("button"); row.type="button"; row.className="account-card plan-row group-row";
     const name=document.createElement("strong"); name.textContent=group.name;
@@ -774,7 +778,7 @@ function renderPlanWorkspace(model) {
   });
   level.occurrences.forEach((item)=>{
     const details=document.createElement("details"); details.className=`account-card plan-row occurrence-row ${item.materialized?"materialized":"planned"}`;
-    const summary=document.createElement("summary"); const name=document.createElement("strong"); name.textContent=`${item.name} · ${item.occurrence_date}`;
+    const summary=document.createElement("summary"); const name=document.createElement("strong"); const marker=document.createElement("span"); marker.className="occurrence-marker"; marker.setAttribute("aria-hidden","true"); marker.textContent=item.materialized?"●":"○"; name.append(marker, document.createTextNode(` ${item.name} · ${item.occurrence_date}`));
     const state=document.createElement("span");
     state.textContent=item.direction==="expense"
       ? `${formatMoney(item.planned_cent)} · Earmarked ${formatMoney(item.earmarked_cent)} · Overrun ${formatMoney(item.overrun_cent)}`
