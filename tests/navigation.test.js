@@ -102,7 +102,7 @@ function mockSupabase() {
                 ? (state.reviews || []).slice(from, to + 1)
                 : table === "transactions"
                   ? state.rows.filter((r) => !ids || ids.includes(r.id))
-                  : table === "plans"
+                  : table === "plan_groups"\n                    ? (state.groups || [])\n                    : table === "plans"
                     ? state.plans.filter((p) => !ids || ids.includes(p.id))
                     : table === "plan_allocations"
                       ? state.allocations.filter((a) => !ids || ids.includes(a.plan_id))
@@ -264,7 +264,7 @@ function mockSupabase() {
         "rules.js",
         "rule-service.js",
         "rule-import-orchestrator.js",
-        "rule-actions.js",
+        "rule-actions.js",\n        "plan-group-service.js",
       ].includes(name)
     ) {
       res.writeHead(404);
