@@ -370,18 +370,21 @@ function mockSupabase() {
     await page.waitForFunction(() => {
       const rows = document.querySelectorAll("#workspace-occurrences .occurrence-row").length;
       const message = document.querySelector("#plans-message")?.textContent || "";
-      return rows === 4 || message.includes("Could not load plans");
+      return rows === 3 || message.includes("Could not load plans");
     });
     assert.equal(
       await page.locator("#workspace-occurrences .occurrence-row").count(),
-      4,
-      `Plan workspace did not render four occurrences. Browser errors: ${errors.join(" | ") || "none"}`,
+      3,
+      `Root Plan workspace did not render three direct occurrences. Browser errors: ${errors.join(" | ") || "none"}`,
     );
     assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Earmarked/);
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Expected|Matched/);
-    assert.match(await page.locator("#workspace-occurrences").textContent(), /Example shop/);
+    assert.doesNotMatch(await page.locator("#workspace-occurrences").textContent(), /Example shop/);
     assert.match(await page.locator("#workspace-groups").textContent(), /Expenses: Earmarked/);
+    await page.locator("#workspace-groups .group-row", { hasText: "Household" }).click();
+    await page.waitForFunction(() => document.querySelectorAll("#workspace-occurrences .occurrence-row").length === 1);
+    assert.match(await page.locator("#workspace-occurrences").textContent(), /Example shop/);
     await page.locator("#workspace-occurrences .occurrence-edit").first().click();
     await page.locator("#plan-dialog").waitFor({ state: "visible" });
     assert.equal(await page.locator("#plan-dialog-title").textContent(), "Edit plan");
