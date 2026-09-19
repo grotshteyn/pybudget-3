@@ -6,23 +6,52 @@
 </head>
 <body>
 <h1>comdirect connection diagnostic</h1>
-<p class="warning">MOCK MODE ONLY — this page does not contact comdirect, Supabase, or import transactions.</p>
+<p class="warning">PRE-DEPLOYMENT DIAGNOSTIC — mock mode is local-only. Real mode requires a signed-in DEV pyBudget session and calls only the read-only account diagnostic. It never imports transactions.</p>
 <form id="credentials">
 <fieldset><legend>Simulated credentials</legend>
 <label>Client ID <input name="client_id" required autocomplete="off"></label>
 <label>Client secret <input name="client_secret" type="password" required autocomplete="off"></label>
 <label>Zugangsnummer <input name="access_number" required autocomplete="off"></label>
 <label>PIN <input name="pin" type="password" required autocomplete="off"></label>
-<button>Start mock authentication</button></fieldset>
+<div><button type="submit" name="mode" value="mock">Start mock authentication</button>
+<button type="submit" name="mode" value="real">Run real read-only DEV diagnostic</button></div></fieldset>
 </form>
 <section id="twofa" hidden><h2>2FA</h2><p id="challenge"></p><label>Optional TAN for non-push mock <input id="tan" type="password" autocomplete="off"></label><button id="confirm" type="button">Confirm mock 2FA</button></section>
 <h2>Sanitized diagnostic</h2><pre id="status">idle</pre>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <script src="comdirect-test-flow.js"></script>
 <script>
-const flow=PyBudgetComdirectFlow.createFlow(PyBudgetComdirectFlow.createMockTransport({delay:150}));
+let flow=PyBudgetComdirectFlow.createFlow(PyBudgetComdirectFlow.createMockTransport({delay:150}));
+const config=window.PYBUDGET_CONFIG||{};
+const supabaseClient=(config.supabaseUrl&&config.supabaseAnonKey)?window.supabase.createClient(config.supabaseUrl,config.supabaseAnonKey):null;
+function realTransport(){
+  return {
+    async start(credentials){
+      if(!supabaseClient) throw new Error("dev_supabase_not_configured");
+      const {data:{session}}=await supabaseClient.auth.getSession();
+      if(!session) throw new Error("sign_in_to_dev_pybudget_first");
+      const {data,error}=await supabaseClient.functions.invoke("comdirect-connection-test",{body:{action:"account-diagnostic",...credentials}});
+      if(error) throw new Error("diagnostic_request_failed");
+      if(!data?.ok) throw new Error(data?.error_code||"diagnostic_failed");
+      return {status:"awaiting_2fa",challenge_id:"server-completed",challenge_type:"P_TAN_PUSH",
+        challenge_text:"The server completed the out-of-band approval and account discovery. Confirm to reveal the sanitized result.",_diagnostic:data};
+    },
+    async confirm(){
+      const s=flow.snapshot();
+      return {status:"complete",diagnostic:realTransport.lastDiagnostic||{ok:false,credentials_retained:false,transactions_imported:0,error_code:"missing_diagnostic"}};
+    }
+  };
+}
 const status=document.querySelector("#status"), twofa=document.querySelector("#twofa"), challenge=document.querySelector("#challenge");
 function render(s){status.textContent=JSON.stringify(s,null,2);twofa.hidden=s.state!=="awaiting_2fa";challenge.textContent=s.challenge?.text||""}
-document.querySelector("#credentials").addEventListener("submit",async(e)=>{e.preventDefault();const f=new FormData(e.currentTarget);const c=Object.fromEntries(f.entries());render({state:"authenticating"});const s=await flow.start(c);e.currentTarget.reset();render(s)});
+document.querySelector("#credentials").addEventListener("submit",async(e)=>{e.preventDefault();const submitter=e.submitter;const mode=submitter?.value||"mock";const f=new FormData(e.currentTarget);const credentials=Object.fromEntries(f.entries());delete credentials.mode;render({state:"authenticating"});if(mode==="real"){
+  if(!supabaseClient){e.currentTarget.reset();render({state:"failed",diagnostic:{ok:false,error_code:"dev_supabase_not_configured"}});return}
+  const {data:{session}}=await supabaseClient.auth.getSession();if(!session){e.currentTarget.reset();render({state:"failed",diagnostic:{ok:false,error_code:"sign_in_to_dev_pybudget_first"}});return}
+  const {data,error}=await supabaseClient.functions.invoke("comdirect-connection-test",{body:{action:"account-diagnostic",...credentials}});
+  e.currentTarget.reset();render(error?{state:"failed",diagnostic:{ok:false,error_code:"diagnostic_request_failed"}}:{state:data?.ok?"complete":"failed",challenge:null,diagnostic:data});return;
+}
+flow=PyBudgetComdirectFlow.createFlow(PyBudgetComdirectFlow.createMockTransport({delay:150}));const s=await flow.start(credentials);e.currentTarget.reset();render(s)});
 document.querySelector("#confirm").addEventListener("click",async()=>{render({state:"activating_2fa"});const tan=document.querySelector("#tan");const s=await flow.confirm({tan:tan.value});tan.value="";render(s)});
 render(flow.snapshot());
 </script>
