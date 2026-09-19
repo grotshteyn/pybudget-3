@@ -1,3 +1,4 @@
+import { createPlanGroup, deletePlanGroup, loadPlanGroups, movePlanToGroup, updatePlanGroup, validParentGroups } from "./plan-group-service.js";
 import { applyRulesAfterImport } from "./rule-import-orchestrator.js";
 import { applyAutomaticRules } from "./rule-service.js";
 import { allocateTransaction, applyPartnerRuleToExistingTransactions, createManualPlanMatch, createPartnerRule, unallocateTransaction } from "./rule-actions.js";
@@ -40,6 +41,18 @@ const elements = {
   expensePlans: document.querySelector("#expense-plans"),
   incomePlans: document.querySelector("#income-plans"),
   addPlan: document.querySelector("#add-plan"),
+  manageGroups: document.querySelector("#manage-groups"),
+  groupDialog: document.querySelector("#group-dialog"),
+  groupForm: document.querySelector("#group-form"),
+  groupId: document.querySelector("#group-id"),
+  groupName: document.querySelector("#group-name"),
+  groupParent: document.querySelector("#group-parent"),
+  groupOrder: document.querySelector("#group-order"),
+  groupList: document.querySelector("#group-list"),
+  groupFormMessage: document.querySelector("#group-form-message"),
+  closeGroups: document.querySelector("#close-groups"),
+  deleteGroup: document.querySelector("#delete-group"),
+  newGroup: document.querySelector("#new-group"),
   planDialog: document.querySelector("#plan-dialog"),
   planForm: document.querySelector("#plan-form"),
   planDialogTitle: document.querySelector("#plan-dialog-title"),
@@ -47,6 +60,7 @@ const elements = {
   planName: document.querySelector("#plan-name"),
   planAmount: document.querySelector("#plan-amount"),
   planDirection: document.querySelector("#plan-direction"),
+  planGroup: document.querySelector("#plan-group"),
   planSchedule: document.querySelector("#plan-schedule"),
   planStart: document.querySelector("#plan-start"),
   planEnd: document.querySelector("#plan-end"),
@@ -104,6 +118,7 @@ let reviewCandidates = [],
   reviewRequest = 0;
 const loadMore = document.querySelector("#load-more");
 let assignmentTransaction = null;
+let planGroups = [];
 let transactionState = "idle";
 let transactionError = "";
 let sessionVersion = 0;
@@ -629,6 +644,46 @@ function renderTransactions() {
   );
 }
 
+function fillGroupSelect(select, selected = "", groups = planGroups) {
+  select.replaceChildren();
+  const root = document.createElement("option"); root.value = ""; root.textContent = "Root"; select.append(root);
+  groups.forEach((group) => { const option=document.createElement("option"); option.value=group.id; option.textContent=group.name; select.append(option); });
+  select.value = selected || "";
+}
+async function refreshPlanGroups() {
+  planGroups = await loadPlanGroups(client);
+  return planGroups;
+}
+function resetGroupEditor(group = null) {
+  elements.groupId.value=group?.id||""; elements.groupName.value=group?.name||""; elements.groupOrder.value=group?.sort_order??0;
+  fillGroupSelect(elements.groupParent, group?.parent_group_id||"", validParentGroups(planGroups, group?.id||null));
+  elements.deleteGroup.hidden=!group; clearMessage(elements.groupFormMessage);
+}
+function renderGroupManager() {
+  elements.groupList.replaceChildren(...planGroups.map((group)=>{
+    const row=document.createElement("button"); row.type="button"; row.className="account-card"; row.textContent=group.name;
+    row.addEventListener("click",()=>resetGroupEditor(group)); return row;
+  }));
+}
+async function openGroupManager() {
+  try { await refreshPlanGroups(); resetGroupEditor(); renderGroupManager(); elements.groupDialog.showModal(); }
+  catch { showMessage(elements.plansMessage,"Could not load groups."); }
+}
+async function saveGroup(event) {
+  event.preventDefault();
+  try {
+    const values={name:elements.groupName.value,parent_group_id:elements.groupParent.value||null,sort_order:Number(elements.groupOrder.value||0)};
+    if(elements.groupId.value) await updatePlanGroup(client,elements.groupId.value,values);
+    else await createPlanGroup(client,currentUser.id,values);
+    await refreshPlanGroups(); renderGroupManager(); resetGroupEditor(); await loadPlans();
+  } catch(error) { showMessage(elements.groupFormMessage,error.message||"Could not save group."); }
+}
+async function removeGroup() {
+  if(!elements.groupId.value) return;
+  try { await deletePlanGroup(client,elements.groupId.value); await refreshPlanGroups(); renderGroupManager(); resetGroupEditor(); await loadPlans(); }
+  catch(error) { showMessage(elements.groupFormMessage,error.message||"Could not delete group."); }
+}
+
 function openPlanEditor(plan = null) {
   elements.planForm.reset();
   clearMessage(elements.planFormMessage);
@@ -637,6 +692,7 @@ function openPlanEditor(plan = null) {
   elements.planName.value = plan?.name || "";
   elements.planAmount.value = plan ? (Number(plan.amount_cent) / 100).toFixed(2) : "";
   elements.planDirection.value = plan?.direction || "expense";
+  fillGroupSelect(elements.planGroup, plan?.group_id || "");
   elements.planSchedule.value = plan?.schedule_type || "monthly";
   elements.planStart.value = plan?.start_date || `${navigation.month}-01`;
   elements.planEnd.value = plan?.end_date || "";
@@ -654,6 +710,7 @@ async function savePlan(event) {
     name: elements.planName.value.trim(),
     amount_cent: amountCent,
     direction: elements.planDirection.value,
+    group_id: elements.planGroup.value || null,
     schedule_type: elements.planSchedule.value,
     start_date: elements.planStart.value,
     end_date: elements.planEnd.value || null,
@@ -684,6 +741,7 @@ async function loadPlans() {
   elements.expensePlans.replaceChildren();
   elements.incomePlans.replaceChildren();
   showMessage(elements.plansMessage, "Loading plans…", "loading");
+  try { await refreshPlanGroups(); } catch { return showMessage(elements.plansMessage, "Could not load groups."); }
   const { data, error } = await client.rpc("plan_occurrences_for_month", {
     p_month: `${navigation.month}-01`,
   });
@@ -695,7 +753,7 @@ async function loadPlans() {
   if (ids.length) {
     const { data: planRows, error: planError } = await client
       .from("plans")
-      .select("id,name,amount_cent,direction,schedule_type,start_date,end_date,is_active")
+      .select("id,name,amount_cent,direction,schedule_type,start_date,end_date,is_active,group_id")
       .in("id", ids);
     if (planError) return showMessage(elements.plansMessage, "Could not load plan details.");
     plansById = new Map((planRows || []).map((plan) => [plan.id, plan]));
@@ -1266,6 +1324,11 @@ function changeMonth(offset) {
   loadTransactions();
 }
 elements.addPlan.addEventListener("click", () => openPlanEditor());
+elements.manageGroups.addEventListener("click", openGroupManager);
+elements.closeGroups.addEventListener("click", () => elements.groupDialog.close());
+elements.newGroup.addEventListener("click", () => resetGroupEditor());
+elements.groupForm.addEventListener("submit", saveGroup);
+elements.deleteGroup.addEventListener("click", removeGroup);
 elements.closePlan.addEventListener("click", () => elements.planDialog.close());
 elements.planForm.addEventListener("submit", savePlan);
 elements.deactivatePlan.addEventListener("click", deactivatePlan);
