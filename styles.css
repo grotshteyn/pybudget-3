@@ -406,3 +406,5 @@ body.signed-in td:nth-child(6)::before { content:'Details'; }
 .unmatched-transaction { width:100%; text-align:left; display:flex; align-items:center; justify-content:space-between; gap:16px; background:#fff0e8; border-left:5px solid #c65f32; }
 .unmatched-marker { display:inline-flex; align-items:center; justify-content:center; width:1.25rem; height:1.25rem; border:1px solid currentColor; border-radius:50%; font-size:.8rem; color:#9d3f1f; }
 @media(max-width:560px){ .unmatched-transaction{align-items:flex-start;flex-direction:column;} }
+
+.occurrence-edit { width:auto; margin-top:10px; }
