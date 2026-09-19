@@ -123,14 +123,89 @@ function safeFailure(error: unknown): Diagnostic {
 export { assertAllowed, requireCredentials, requestInfo, providerFetch, passwordToken, sessionStatus, beginTwoFactor,
   activateTwoFactor, secondaryToken, listAccounts, terminateSession, diagnostic, safeFailure };
 
-// The HTTP entrypoint remains deliberately disabled. The state-machine functions above are testable with mocked fetch.
-// We will enable a real multi-step browser protocol only after reviewing current provider behavior and explicit deployment approval.
+async function requirePyBudgetUser(req: Request) {
+  const authorization = req.headers.get("authorization") || "";
+  if (!authorization.startsWith("Bearer ")) throw new Error("pybudget_auth_required");
+  const base = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!base || !key) throw new Error("supabase_auth_not_configured");
+  const response = await fetch(base + "/auth/v1/user", {
+    headers: { authorization, apikey: key, accept: "application/json" }
+  });
+  if (!response.ok) throw new Error("pybudget_auth_invalid");
+  const user = await response.json();
+  if (!user?.id) throw new Error("pybudget_auth_invalid");
+  return user.id as string;
+}
+
+async function runAccountDiagnostic(fetcher: typeof fetch, credentials: Credentials, wait: (ms: number) => Promise<void>) {
+  const clientSessionId = randomId(16);
+  let first: TokenSet | null = null;
+  let secondary: TokenSet | null = null;
+  let providerSession: string | null = null;
+  let terminationAttempted = false;
+  let terminationSucceeded = false;
+  try {
+    first = await passwordToken(fetcher, credentials);
+    if (!first?.access_token) throw new Error("oauth_access_token_missing");
+    const status = await sessionStatus(fetcher, first.access_token, clientSessionId);
+    providerSession = String(status.identifier);
+    const challenge = await beginTwoFactor(fetcher, first.access_token, clientSessionId, providerSession);
+
+    // Push/photoTAN approval happens out-of-band in the comdirect app. Keeping the whole
+    // diagnostic in one invocation prevents OAuth/session credentials from entering the browser
+    // or a database. Retry activation for a bounded period while the user approves the challenge.
+    let activated = false;
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 12 && !activated; attempt += 1) {
+      if (attempt) await wait(5000);
+      try {
+        await activateTwoFactor(fetcher, first.access_token, clientSessionId, providerSession, challenge.id);
+        activated = true;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (!activated) throw lastError || new Error("two_factor_timeout");
+
+    secondary = await secondaryToken(fetcher, credentials, first.access_token);
+    if (!secondary?.access_token) throw new Error("oauth_secondary_token_missing");
+    const accounts = await listAccounts(fetcher, secondary.access_token, clientSessionId);
+    return diagnostic("accounts", { ok: true, account_count: accounts.length });
+  } finally {
+    // Do not claim provider termination support until verified. If DELETE is unsupported,
+    // credentials/tokens are still discarded when this invocation returns.
+    if (providerSession && (secondary?.access_token || first?.access_token)) {
+      terminationAttempted = true;
+      try {
+        terminationSucceeded = await terminateSession(fetcher, secondary?.access_token || first!.access_token, clientSessionId, providerSession);
+      } catch (_) {
+        terminationSucceeded = false;
+      }
+    }
+    first = null;
+    secondary = null;
+    credentials.client_secret = "";
+    credentials.pin = "";
+    if (terminationAttempted && !terminationSucceeded) {
+      // Deliberately no logging of provider responses or credential-bearing state.
+    }
+  }
+}
+
+export { requirePyBudgetUser, runAccountDiagnostic };
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ ok: false, error_code: "method_not_allowed" }, 405);
   try {
+    await requirePyBudgetUser(req);
     const body = await req.json();
-    requireCredentials(body);
-    return json(diagnostic("prepared_not_enabled", { error_code: "real_comdirect_calls_not_enabled" }), 501);
+    if (body?.action !== "account-diagnostic") throw new Error("unsupported_action");
+    const credentials = requireCredentials(body);
+    const result = await runAccountDiagnostic(fetch, credentials, (ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    // Session termination is intentionally not asserted in the response until the current
+    // provider semantics have been confirmed by the first controlled DEV diagnostic.
+    return json(result);
   } catch (error) {
     return json(safeFailure(error), 400);
   }
