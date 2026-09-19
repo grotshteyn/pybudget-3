@@ -102,7 +102,9 @@ function mockSupabase() {
                 ? (state.reviews || []).slice(from, to + 1)
                 : table === "transactions"
                   ? state.rows.filter((r) => !ids || ids.includes(r.id))
-                  : table === "plan_groups"\n                    ? (state.groups || [])\n                    : table === "plans"
+                  : table === "plan_groups"
+                    ? (state.groups || [])
+                    : table === "plans"
                     ? state.plans.filter((p) => !ids || ids.includes(p.id))
                     : table === "plan_allocations"
                       ? state.allocations.filter((a) => !ids || ids.includes(a.plan_id))
@@ -264,7 +266,9 @@ function mockSupabase() {
         "rules.js",
         "rule-service.js",
         "rule-import-orchestrator.js",
-        "rule-actions.js",\n        "plan-group-service.js",\n        "plan-read-model.js",
+        "rule-actions.js",
+        "plan-group-service.js",
+        "plan-read-model.js",
       ].includes(name)
     ) {
       res.writeHead(404);
@@ -429,7 +433,8 @@ function mockSupabase() {
       '"Umsätze Girokonto";"Zeitraum: 01.01.2026 - 31.03.2026";',
       '"Buchungstag";"Wertstellung (Valuta)";"Vorgang";"Buchungstext";"Umsatz in EUR";',
       '"12.03.2026";"12.03.2026";"Lastschrift / Belastung";"EXAMPLE SHOP";"-12,34";',
-    ].join("\r\n");
+    ].join("\r
+");
     await page.locator("#csv-file").setInputFiles({
       name: "synthetic.csv",
       mimeType: "text/csv",
