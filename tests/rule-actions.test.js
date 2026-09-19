@@ -21,7 +21,10 @@ assert.doesNotMatch(actions, /await import\("\.\/rule-service\.js"\)/);
 assert.match(app, /applyPartnerRuleToExistingTransactions/);
 assert.match(app, /Rule post-processing failed after reconciliation resolution/);
 assert.match(app, /resolution\?\.transaction_id/);
-assert.match(html, /Only this transaction/);
-assert.match(html, /All transactions from this partner/);
+assert.match(html, /Save assignment/);
+assert.match(html, /Include this transaction in the Plan/);
+assert.match(html, /Create a Rule for similar transactions/);
+assert.doesNotMatch(html, /assign-amount/);
+assert.doesNotMatch(html, /allocate only part/);
 
 console.log("Rule action UI tests passed.");
