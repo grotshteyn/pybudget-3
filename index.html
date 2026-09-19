@@ -209,14 +209,16 @@
               <button id="next-plan-month" class="compact secondary" type="button" aria-label="Next plan month">›</button>
             </div>
             <p id="plans-message" class="notice" role="status" aria-live="polite" hidden=""></p>
-            <section aria-labelledby="expense-plans-title">
-              <h3 id="expense-plans-title">Expenses</h3>
-              <div id="expense-plans" class="accounts-list"></div>
+            <nav id="workspace-breadcrumb" class="assignment-actions" aria-label="Plan group location"></nav>
+            <section aria-labelledby="plan-groups-title">
+              <h3 id="plan-groups-title">Groups</h3>
+              <div id="workspace-groups" class="accounts-list"></div>
             </section>
-            <section aria-labelledby="income-plans-title">
-              <h3 id="income-plans-title">Income</h3>
-              <div id="income-plans" class="accounts-list"></div>
+            <section aria-labelledby="plan-occurrences-title">
+              <h3 id="plan-occurrences-title">Plan occurrences</h3>
+              <div id="workspace-occurrences" class="accounts-list"></div>
             </section>
+            <div id="expense-plans" hidden></div><div id="income-plans" hidden></div>
           </section>
 
           <section
