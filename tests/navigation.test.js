@@ -445,6 +445,17 @@ function mockSupabase() {
     assert.equal(await page.locator("#assign-include").isChecked(), true);
     assert.equal(await page.locator("#assign-rule").isChecked(), false);
     await page.waitForFunction(() => document.querySelector("#assign-group")?.disabled === false);
+    await page.locator("#assign-new-plan").click();
+    await page.waitForFunction(() => document.querySelector("#plan-dialog")?.open === true);
+    assert.equal(await page.locator("#assign-dialog").evaluate((dialog) => dialog.open), false);
+    assert.equal(await page.locator("#plan-dialog-title").textContent(), "Add plan");
+    assert.equal(await page.locator("#plan-name").inputValue(), "Example salary");
+    assert.equal(await page.locator("#plan-amount").inputValue(), "100.00");
+    assert.equal(await page.locator("#plan-direction").inputValue(), "income");
+    await page.locator("#close-plan").click();
+
+    await page.locator("#workspace-unmatched .unmatched-transaction").click();
+    await page.waitForFunction(() => document.querySelector("#assign-group")?.disabled === false);
     assert.equal(await page.locator("#assign-plan").inputValue(), "p1");
     assert.equal(await page.locator("#assign-group").inputValue(), "g1");
     await page.locator("#assign-group").evaluate((select) => { select.value = ""; });
