@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : window, function () {
   "use strict";
 
-  const ALLOWED_ACTIONS = new Set(["authenticate", "activate-session", "list-accounts", "list-transactions", "terminate-session"]);
+  const ALLOWED_ACTIONS = new Set(["account-diagnostic"]);
 
   function requireString(value, name) {
     if (typeof value !== "string" || !value.trim()) throw new Error(name + " is required");
@@ -31,7 +31,7 @@
       ok: Boolean(value && value.ok),
       stage: String(value && value.stage || "unknown"),
       account_count: Number.isInteger(value && value.account_count) ? value.account_count : null,
-      transaction_count: Number.isInteger(value && value.transaction_count) ? value.transaction_count : null,
+      transaction_count: null,
       session_terminated: Boolean(value && value.session_terminated),
       credentials_retained: false,
       transactions_imported: 0,
