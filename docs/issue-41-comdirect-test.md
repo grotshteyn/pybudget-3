@@ -48,3 +48,12 @@ The browser receives no OAuth token, refresh token, Session-TAN identifier, PIN,
 Provider session termination is intentionally not called yet. The current termination semantics have not been verified strongly enough to risk invoking a guessed endpoint against a real banking connection. The first controlled DEV run therefore relies on discarding all local token material and token expiry; termination/invalidation must be verified separately before claiming that invariant.
 
 The real diagnostic remains undeployed. The standalone diagnostic page can invoke it only after deployment and only with an authenticated DEV pyBudget session.
+
+
+## Security hardening before DEV deployment
+
+The account-only diagnostic now uses least privilege: the provider allowlist permits only the OAuth token endpoint, session status/validation/activation endpoints, and account discovery. Transaction retrieval and speculative session DELETE access are not permitted in this diagnostic.
+
+The DEV caller allowlist is no longer committed to source. Deployment must set `COMDIRECT_DIAGNOSTIC_ALLOWED_USER_IDS` as a server-side Edge Function secret/environment variable. An empty allowlist fails closed.
+
+The first controlled real-account diagnostic remains blocked on authoritative confirmation of provider-side session termination/invalidation semantics. Until then, the code must not claim `session_terminated: true`.
