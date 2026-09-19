@@ -100,7 +100,7 @@ function mockSupabase() {
         },
         eq(field, value) {
           eqFilters.push([field, value]);
-          if (table === "bank_accounts" && field === "id") accountId = value;
+          if (field === "id") accountId = value;
           return this;
         },
         update(value) {
@@ -131,11 +131,17 @@ function mockSupabase() {
           const error = state.error;
           return new Promise((done) =>
             setTimeout(() => {
-              if (changes)
-                Object.assign(
-                  state.accounts.find((a) => a.id === accountId),
-                  changes,
-                );
+              if (changes) {
+                const collections = {
+                  bank_accounts: state.accounts,
+                  plans: state.plans,
+                  plan_groups: state.groups,
+                  transactions: state.rows,
+                };
+                const collection = collections[table];
+                const row = collection?.find((item) => item.id === accountId || item.plan_id === accountId);
+                if (row) Object.assign(row, changes);
+              }
               done({
                 data,
                 error: error ? { message: "Synthetic outage" } : null,
