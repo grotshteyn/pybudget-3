@@ -100,6 +100,7 @@ const elements = {
   assignDialog: document.querySelector("#assign-dialog"),
   assignTitle: document.querySelector("#assign-title"),
   assignPlan: document.querySelector("#assign-plan"),
+  assignGroup: document.querySelector("#assign-group"),
   assignNewPlan: document.querySelector("#assign-new-plan"),
   assignInclude: document.querySelector("#assign-include"),
   assignRule: document.querySelector("#assign-rule"),
@@ -458,6 +459,8 @@ async function openAssignment(transaction) {
   elements.assignTitle.textContent =
     "Plan " + (transaction.partner || transaction.description || "transaction");
   elements.assignPlan.replaceChildren();
+  fillGroupSelect(elements.assignGroup, "");
+  elements.assignGroup.disabled = true;
   elements.assignInclude.checked = true;
   elements.assignRule.checked = false;
   elements.assignRule.disabled = !String(transaction.partner || "").trim();
@@ -475,8 +478,15 @@ async function openAssignment(transaction) {
     const option = document.createElement("option");
     option.value = plan.id;
     option.textContent = plan.name;
+    option.dataset.groupId = plan.group_id || "";
     elements.assignPlan.append(option);
   });
+  const syncAssignmentGroup = () => {
+    const option = elements.assignPlan.selectedOptions[0];
+    elements.assignGroup.disabled = !option;
+    fillGroupSelect(elements.assignGroup, option?.dataset.groupId || "");
+  };
+  syncAssignmentGroup();
   if (!data?.length) showMessage(elements.assignMessage, "Create a Plan to continue.");
 }
 
@@ -514,6 +524,13 @@ async function assignCurrentTransaction() {
     return showMessage(elements.assignMessage, "This transaction has no partner to match with a Rule.");
   elements.assignOnce.disabled = true;
   try {
+    const selectedOption = elements.assignPlan.selectedOptions[0];
+    const currentGroupId = selectedOption?.dataset.groupId || "";
+    const requestedGroupId = elements.assignGroup.value || "";
+    if (currentGroupId !== requestedGroupId) {
+      await movePlanToGroup(client, planId, requestedGroupId || null);
+      if (selectedOption) selectedOption.dataset.groupId = requestedGroupId;
+    }
     let partnerRule = null;
     if (createRule) {
       partnerRule = await createPartnerRule(client, currentUser.id, assignmentTransaction, planId);
@@ -1421,6 +1438,11 @@ if (!configured) {
 }
 
 elements.assignOnce.addEventListener("click", assignCurrentTransaction);
+elements.assignPlan.addEventListener("change", () => {
+  const option = elements.assignPlan.selectedOptions[0];
+  elements.assignGroup.disabled = !option;
+  fillGroupSelect(elements.assignGroup, option?.dataset.groupId || "");
+});
 elements.assignNewPlan.addEventListener("click", createPlanFromAssignment);
 elements.closeAssign.addEventListener("click", () => elements.assignDialog.close());
 elements.assignDialog.addEventListener("close", () => {
