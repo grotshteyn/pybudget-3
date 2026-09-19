@@ -69,6 +69,8 @@ export async function applyPartnerRuleToExistingTransactions(client, rule, partn
     .ilike("partner", `%${normalizedPartner}%`);
   if (error) throw error;
 
-  const { applyAutomaticRules } = await import("./rule-service.js");
-  return applyAutomaticRules(client, transactions || []);
+  if (typeof applyRules !== "function") {
+    throw new Error("Automatic rule evaluator is required.");
+  }
+  return applyRules(client, transactions || []);
 }
