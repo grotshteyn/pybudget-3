@@ -24,6 +24,10 @@ assert.match(app, /resolution\?\.transaction_id/);
 assert.match(html, /Save assignment/);
 assert.match(html, /Include this transaction in the Plan/);
 assert.match(html, /Create a Rule for similar transactions/);
+assert.match(html, /id="assign-group"/);
+assert.match(html, /Changing the Group moves the selected Plan/);
+assert.match(app, /movePlanToGroup\(client, planId, requestedGroupId \|\| null\)/);
+assert.match(app, /elements\.assignPlan\.addEventListener\("change"/);
 assert.doesNotMatch(html, /assign-amount/);
 assert.doesNotMatch(html, /allocate only part/);
 
