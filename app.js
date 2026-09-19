@@ -1,5 +1,5 @@
 import { applyRulesAfterImport } from "./rule-import-orchestrator.js";\nimport { applyAutomaticRules } from "./rule-service.js";
-import { allocateTransaction, createManualPlanMatch, createPartnerRule, unallocateTransaction } from "./rule-actions.js";
+import { allocateTransaction, applyPartnerRuleToExistingTransactions, createManualPlanMatch, createPartnerRule, unallocateTransaction } from "./rule-actions.js";
 
 const config = window.PYBUDGET_CONFIG || {};
 const configured = Boolean(
