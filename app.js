@@ -828,17 +828,23 @@ function renderPlanWorkspace(model) {
     row.append(name,state); row.addEventListener("click",()=>{activePlanGroupId=group.id;renderPlanWorkspace(model);}); elements.workspaceGroups.append(row);
   });
   level.occurrences.forEach((item)=>{
-    const details=document.createElement("details"); details.className=`account-card plan-row occurrence-row ${item.materialized?"materialized":"planned"}`;
-    const summary=document.createElement("summary"); const name=document.createElement("strong"); const marker=document.createElement("span"); marker.className="occurrence-marker"; marker.setAttribute("aria-hidden","true"); marker.textContent=item.materialized?"●":"○"; name.append(marker, document.createTextNode(` ${item.name} · ${item.occurrence_date}`));
+    const card=document.createElement("article"); card.className=`account-card plan-row occurrence-row ${item.materialized?"materialized":"planned"}`;
+    const header=document.createElement("div"); header.className="occurrence-header";
+    const name=document.createElement("strong"); const marker=document.createElement("span"); marker.className="occurrence-marker"; marker.setAttribute("aria-hidden","true"); marker.textContent=item.materialized?"●":"○"; name.append(marker, document.createTextNode(` ${item.name} · ${item.occurrence_date}`));
     const state=document.createElement("span");
     state.textContent=item.direction==="expense"
       ? `${formatMoney(item.planned_cent)} · Earmarked ${formatMoney(item.earmarked_cent)} · Overrun ${formatMoney(item.overrun_cent)}`
       : `${formatMoney(item.planned_cent)} · Receivable ${formatMoney(item.receivable_cent)} · Windfall ${formatMoney(item.windfall_cent)}`;
-    const edit=document.createElement("button"); edit.type="button"; edit.className="compact secondary occurrence-edit"; edit.textContent="Edit Plan"; edit.addEventListener("click",async(event)=>{event.preventDefault();event.stopPropagation();await editPlanFromOccurrence(item.plan_id);});
-    summary.append(name,state); details.append(summary);
-    const actions=document.createElement("div"); actions.className="occurrence-actions"; actions.append(edit); details.append(actions);
-    item.matched_transactions.forEach((tx)=>{const line=document.createElement("div"); line.className="assignment-actions matched-transaction"; const label=document.createElement("span"); label.textContent=`${tx.partner||tx.description||"Transaction"} · ${formatMoney(tx.allocated_amount_cent)}`; line.append(label); details.append(line);});
-    elements.workspaceOccurrences.append(details);
+    header.append(name,state); card.append(header);
+    const actions=document.createElement("div"); actions.className="occurrence-actions";
+    const edit=document.createElement("button"); edit.type="button"; edit.className="compact secondary occurrence-edit"; edit.textContent="Edit Plan"; edit.addEventListener("click",()=>editPlanFromOccurrence(item.plan_id)); actions.append(edit); card.append(actions);
+    if(item.matched_transactions.length){
+      const matched=document.createElement("details"); matched.className="occurrence-matches";
+      const matchedSummary=document.createElement("summary"); matchedSummary.textContent=`Matched transactions (${item.matched_transactions.length})`; matched.append(matchedSummary);
+      item.matched_transactions.forEach((tx)=>{const line=document.createElement("div"); line.className="assignment-actions matched-transaction"; const label=document.createElement("span"); label.textContent=`${tx.partner||tx.description||"Transaction"} · ${formatMoney(tx.allocated_amount_cent)}`; line.append(label); matched.append(line);});
+      card.append(matched);
+    }
+    elements.workspaceOccurrences.append(card);
   });
   elements.workspaceUnmatchedSection.hidden = activePlanGroupId !== null;
   if (activePlanGroupId === null) {
