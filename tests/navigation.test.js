@@ -441,6 +441,7 @@ function mockSupabase() {
     assert.match(await page.locator("#workspace-unmatched").textContent(), /Example salary/);
     assert.match(await page.locator("#workspace-unmatched").textContent(), /Unmatched/);
     await page.locator("#workspace-unmatched .unmatched-transaction").click();
+    await page.locator("#assign-dialog").waitFor({ state: "visible" });
     assert.match(await page.locator("#assign-title").textContent(), /Example salary/);
     assert.equal(await page.locator("#assign-include").isChecked(), true);
     assert.equal(await page.locator("#assign-rule").isChecked(), false);
