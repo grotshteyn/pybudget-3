@@ -11,6 +11,6 @@ assert.equal(fromCalls, 0);
 
 const source = fs.readFileSync(new URL("../rule-import-orchestrator.js", import.meta.url), "utf8");
 assert.doesNotMatch(source, /importResult\.already_imported/);
-assert.match(source, /occurrences = null/);
+assert.match(source, /occurrences = null/);\n\nconst appSource = fs.readFileSync(new URL("../app.js", import.meta.url), "utf8");\nassert.match(appSource, /Rule post-processing failed after successful import/);\nassert.match(appSource, /rules pending retry/);
 
 console.log("Rule import orchestration tests passed.");
