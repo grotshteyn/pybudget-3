@@ -121,6 +121,14 @@ function mockSupabase() {
           if (table === "user_test_data") state.testData = { ...(state.testData || {}), ...value };
           return this;
         },
+        delete() {
+          changes = { __delete: true };
+          return this;
+        },
+        ilike(field, pattern) {
+          eqFilters.push([field, String(pattern).replaceAll("%", "").toLowerCase(), "ilike"]);
+          return this;
+        },
         then(resolve, reject) {
           state.calls.push(table);
           let rawData =
@@ -139,7 +147,7 @@ function mockSupabase() {
                         : state.accounts;
           if (Array.isArray(rawData) && eqFilters.length)
             rawData = rawData.filter((row) => eqFilters.every(([field, value, operator]) =>
-              operator === "neq" ? row[field] !== value : row[field] === value));
+              operator === "neq" ? row[field] !== value : operator === "ilike" ? String(row[field] || "").toLowerCase().includes(value) : row[field] === value));
           if (single) rawData = Array.isArray(rawData) ? (rawData[0] || null) : rawData;
           const data = structuredClone(rawData);
           const error = state.error;
@@ -154,7 +162,8 @@ function mockSupabase() {
                 };
                 const collection = collections[table];
                 const row = collection?.find((item) => item.id === accountId || item.plan_id === accountId);
-                if (row) Object.assign(row, changes);
+                if (row && changes.__delete) collection.splice(collection.indexOf(row), 1);
+                else if (row) Object.assign(row, changes);
               }
               done({
                 data,
