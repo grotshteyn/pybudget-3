@@ -1,11 +1,11 @@
 export const COMDIRECT_API = "https://api.comdirect.de";
 
 const ALLOWED_PROVIDER_ROUTES = Object.freeze([
-  ["POST", /^\\/oauth\\/token$/],
-  ["GET", /^\\/api\\/session\\/clients\\/user\\/v1\\/sessions$/],
-  ["POST", /^\\/api\\/session\\/clients\\/user\\/v1\\/sessions\\/[^/]+\\/validate$/],
-  ["PATCH", /^\\/api\\/session\\/clients\\/user\\/v1\\/sessions\\/[^/]+$/],
-  ["GET", /^\\/api\\/banking\\/v1\\/accounts$/],
+  ["POST", /^\/oauth\/token$/],
+  ["GET", /^\/api\/session\/clients\/user\/v1\/sessions$/],
+  ["POST", /^\/api\/session\/clients\/user\/v1\/sessions\/[^/]+\/validate$/],
+  ["PATCH", /^\/api\/session\/clients\/user\/v1\/sessions\/[^/]+$/],
+  ["GET", /^\/api\/banking\/v1\/accounts$/],
 ]);
 
 const SAFE_ERROR_EXACT = new Set([
@@ -34,7 +34,7 @@ export function assertProviderAllowed(url, method) {
 export function sanitizeErrorCode(error) {
   const message = error instanceof Error ? error.message : "";
   if (SAFE_ERROR_EXACT.has(message)) return message;
-  if (SAFE_ERROR_PREFIXES.some((prefix) => message.startsWith(prefix) && /^\\d{3}$/.test(message.slice(prefix.length)))) return message;
+  if (SAFE_ERROR_PREFIXES.some((prefix) => message.startsWith(prefix) && /^\d{3}$/.test(message.slice(prefix.length)))) return message;
   return "unexpected_error";
 }
 
