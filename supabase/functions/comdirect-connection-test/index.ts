@@ -1,15 +1,8 @@
+import { COMDIRECT_API, assertProviderAllowed, sanitizeErrorCode, parseCsvSet, assertConfiguredMember } from "./security.mjs";
+
 // Issue #41 pre-deployment diagnostic only.
 // Intentionally NOT wired into the frontend and NOT deployed.
 // No database writes. No transaction ingestion. No durable credential storage.
-
-const COMDIRECT_API = "https://api.comdirect.de";
-const ALLOWED = [
-  { method: "POST", path: /^\/oauth\/token$/ },
-  { method: "GET", path: /^\/api\/session\/clients\/user\/v1\/sessions$/ },
-  { method: "POST", path: /^\/api\/session\/clients\/user\/v1\/sessions\/[^/]+\/validate$/ },
-  { method: "PATCH", path: /^\/api\/session\/clients\/user\/v1\/sessions\/[^/]+$/ },
-  { method: "GET", path: /^\/api\/banking\/v1\/accounts$/ }
-];
 
 type Credentials = { client_id: string; client_secret: string; access_number: string; pin: string };
 type TokenSet = { access_token: string; refresh_token?: string; token_type?: string };
@@ -18,12 +11,23 @@ type Diagnostic = {
   session_terminated: boolean; credentials_retained: false; transactions_imported: 0; error_code: string | null;
 };
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+function corsHeaders(origin: string | null) {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "cache-control": "no-store",
+    "vary": "Origin",
+  };
+  if (origin) headers["access-control-allow-origin"] = origin;
+  return headers;
 }
-function assertAllowed(url: URL, method: string) {
-  if (url.origin !== COMDIRECT_API) throw new Error("provider_origin_blocked");
-  if (!ALLOWED.some((entry) => entry.method === method && entry.path.test(url.pathname))) throw new Error("provider_endpoint_blocked");
+function allowedBrowserOrigin(req: Request) {
+  const origin = req.headers.get("origin");
+  if (!origin) return null;
+  return assertConfiguredMember(origin, Deno.env.get("COMDIRECT_DIAGNOSTIC_ALLOWED_ORIGINS"),
+    "origin_not_allowed", "origin_not_allowed");
+}
+function json(body: unknown, status = 200, origin: string | null = null) {
+  return new Response(JSON.stringify(body), { status, headers: corsHeaders(origin) });
 }
 function requireCredentials(body: Record<string, unknown>): Credentials {
   const names = ["client_id", "client_secret", "access_number", "pin"] as const;
@@ -49,7 +53,7 @@ function providerHeaders(token: string, sessionId: string) {
 async function providerFetch(fetcher: typeof fetch, path: string, init: RequestInit) {
   const url = new URL(path, COMDIRECT_API);
   const method = String(init.method || "GET").toUpperCase();
-  assertAllowed(url, method);
+  assertProviderAllowed(url, method);
   const response = await fetcher(url, { ...init, redirect: "error" });
   return response;
 }
@@ -108,23 +112,19 @@ function diagnostic(stage: string, values: Partial<Diagnostic> = {}): Diagnostic
     credentials_retained: false, transactions_imported: 0, error_code: null, ...values };
 }
 function safeFailure(error: unknown): Diagnostic {
-  const message = error instanceof Error ? error.message : "unexpected_error";
-  return diagnostic("failed", { error_code: message });
+  return diagnostic("failed", { error_code: sanitizeErrorCode(error) });
 }
 
-export { assertAllowed, requireCredentials, requestInfo, providerFetch, passwordToken, sessionStatus, beginTwoFactor,
+export { assertProviderAllowed, requireCredentials, requestInfo, providerFetch, passwordToken, sessionStatus, beginTwoFactor,
   activateTwoFactor, secondaryToken, listAccounts, diagnostic, safeFailure };
 
 function diagnosticAllowedUserIds() {
-  return new Set((Deno.env.get("COMDIRECT_DIAGNOSTIC_ALLOWED_USER_IDS") || "")
-    .split(",").map((value) => value.trim()).filter(Boolean));
+  return parseCsvSet(Deno.env.get("COMDIRECT_DIAGNOSTIC_ALLOWED_USER_IDS"));
 }
 
 function assertDiagnosticUserAllowed(userId: string) {
-  const allowed = diagnosticAllowedUserIds();
-  if (!allowed.size) throw new Error("diagnostic_allowlist_not_configured");
-  if (!allowed.has(userId)) throw new Error("diagnostic_user_not_allowed");
-  return userId;
+  return assertConfiguredMember(userId, Deno.env.get("COMDIRECT_DIAGNOSTIC_ALLOWED_USER_IDS"),
+    "diagnostic_allowlist_not_configured", "diagnostic_user_not_allowed");
 }
 
 async function requirePyBudgetUser(req: Request) {
@@ -189,17 +189,26 @@ async function runAccountDiagnostic(fetcher: typeof fetch, credentials: Credenti
 export { diagnosticAllowedUserIds, assertDiagnosticUserAllowed, requirePyBudgetUser, runAccountDiagnostic };
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return json({ ok: false, error_code: "method_not_allowed" }, 405);
+  let origin: string | null = null;
   try {
+    origin = allowedBrowserOrigin(req);
+    if (req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: {
+        ...corsHeaders(origin),
+        "access-control-allow-methods": "POST, OPTIONS",
+        "access-control-allow-headers": "authorization, apikey, content-type, x-client-info",
+        "access-control-max-age": "600",
+      } });
+    }
+    if (req.method !== "POST") return json({ ok: false, error_code: "method_not_allowed" }, 405, origin);
     await requirePyBudgetUser(req);
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try { body = await req.json(); } catch { throw new Error("invalid_json"); }
     if (body?.action !== "account-diagnostic") throw new Error("unsupported_action");
     const credentials = requireCredentials(body);
     const result = await runAccountDiagnostic(fetch, credentials, (ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-    // Session termination is intentionally not asserted in the response until the current
-    // provider semantics have been confirmed by the first controlled DEV diagnostic.
-    return json(result);
+    return json(result, 200, origin);
   } catch (error) {
-    return json(safeFailure(error), 400);
+    return json(safeFailure(error), 400, origin);
   }
 });
