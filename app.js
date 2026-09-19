@@ -460,6 +460,8 @@ async function openAssignment(transaction) {
   elements.assignPlan.replaceChildren();
   elements.assignInclude.checked = true;
   elements.assignRule.checked = false;
+  elements.assignRule.disabled = !String(transaction.partner || "").trim();
+  elements.assignRule.title = elements.assignRule.disabled ? "Rules require a transaction partner." : "";
   clearMessage(elements.assignMessage);
   elements.assignDialog.showModal();
   const { data, error } = await client
@@ -504,10 +506,14 @@ async function assignCurrentTransaction() {
   const planId = selectedPlanId();
   if (!planId)
     return showMessage(elements.assignMessage, "Choose a Plan or create a new one.");
+  const includeCurrent = elements.assignInclude.checked;
+  const createRule = elements.assignRule.checked;
+  if (!includeCurrent && !createRule)
+    return showMessage(elements.assignMessage, "Include this transaction or create a Rule to save an assignment.");
+  if (createRule && !String(assignmentTransaction.partner || "").trim())
+    return showMessage(elements.assignMessage, "This transaction has no partner to match with a Rule.");
   elements.assignOnce.disabled = true;
   try {
-    const includeCurrent = elements.assignInclude.checked;
-    const createRule = elements.assignRule.checked;
     let partnerRule = null;
     if (createRule) {
       partnerRule = await createPartnerRule(client, currentUser.id, assignmentTransaction, planId);
