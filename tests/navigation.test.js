@@ -264,7 +264,7 @@ function mockSupabase() {
         "rules.js",
         "rule-service.js",
         "rule-import-orchestrator.js",
-        "rule-actions.js",\n        "plan-group-service.js",
+        "rule-actions.js",\n        "plan-group-service.js",\n        "plan-read-model.js",
       ].includes(name)
     ) {
       res.writeHead(404);
@@ -345,7 +345,7 @@ function mockSupabase() {
     await active("transactions");
     await rows(2);
     await navigate("plans");
-    await page.waitForFunction(() => document.querySelectorAll("#expense-plans .plan-row").length === 2 && document.querySelectorAll("#income-plans .plan-row").length === 1);
+    await page.waitForFunction(() => document.querySelectorAll("#workspace-occurrences .occurrence-row").length === 3);
     assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
     assert.match(await page.locator("#expense-plans .plan-row").first().textContent(), /€20,00 \/ €500,00/, "pending allocations count toward Plan actuals");
     assert.match(await page.locator("#expense-plans").textContent(), /€0,00 \/ €20,00/);
