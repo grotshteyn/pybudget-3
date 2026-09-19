@@ -69,7 +69,7 @@ function mockSupabase() {
         },
         maybeSingle() {
           single = true;
-          return this;
+          return this.then(({ data, error }) => ({ data, error }));
         },
         order() {
           return this;
