@@ -366,6 +366,12 @@ function mockSupabase() {
     assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Earmarked/);
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Example shop/);
+    assert.equal(await page.locator("#workspace-unmatched .unmatched-transaction").count(), 1);
+    assert.match(await page.locator("#workspace-unmatched").textContent(), /Example salary/);
+    assert.match(await page.locator("#workspace-unmatched").textContent(), /Unmatched/);
+    await page.locator("#workspace-unmatched .unmatched-transaction").click();
+    assert.match(await page.locator("#assign-title").textContent(), /Example salary/);
+    await page.locator("#assign-dialog").evaluate((dialog) => dialog.close());
     await page.locator("#add-plan").click();
     assert.equal(await page.locator("#plan-dialog-title").textContent(), "Add plan");
     assert.equal(await page.locator("#plan-start").inputValue(), "2026-09-01");
