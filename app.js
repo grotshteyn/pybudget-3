@@ -755,19 +755,24 @@ async function savePlan(event) {
   if (result.error) return showMessage(elements.planFormMessage, result.error.message || "Could not save plan.");
   if (!editing && planCreationContext && savedPlanId) {
     const { transaction, includeCurrent, createRule } = planCreationContext;
-    let partnerRule = null;
-    if (createRule) partnerRule = await createPartnerRule(client, currentUser.id, transaction, savedPlanId);
-    if (includeCurrent) {
-      await createManualPlanMatch(client, currentUser.id, transaction.id, savedPlanId, Math.abs(Number(transaction.amount_cent)));
-    }
-    if (partnerRule) {
-      try {
-        await applyPartnerRuleToExistingTransactions(client, partnerRule, transaction.partner, applyAutomaticRules);
-      } catch (ruleError) {
-        console.error("Rule created, but bulk application failed.", ruleError);
+    try {
+      let partnerRule = null;
+      if (createRule) partnerRule = await createPartnerRule(client, currentUser.id, transaction, savedPlanId);
+      if (includeCurrent) {
+        await createManualPlanMatch(client, currentUser.id, transaction.id, savedPlanId, Math.abs(Number(transaction.amount_cent)));
       }
+      if (partnerRule) {
+        try {
+          await applyPartnerRuleToExistingTransactions(client, partnerRule, transaction.partner, applyAutomaticRules);
+        } catch (ruleError) {
+          console.error("Rule created, but bulk application failed.", ruleError);
+        }
+      }
+      planCreationContext = null;
+    } catch (error) {
+      return showMessage(elements.planFormMessage,
+        `Plan created, but the transaction assignment was not completed: ${error.message || "unknown error"}. You can retry the assignment safely.`);
     }
-    planCreationContext = null;
   }
   elements.planDialog.close();
   await loadPlans();
