@@ -6,9 +6,7 @@ const allowed = [
   ["GET", /^\/api\/session\/clients\/user\/v1\/sessions$/],
   ["POST", /^\/api\/session\/clients\/user\/v1\/sessions\/[^/]+\/validate$/],
   ["PATCH", /^\/api\/session\/clients\/user\/v1\/sessions\/[^/]+$/],
-  ["DELETE", /^\/api\/session\/clients\/user\/v1\/sessions\/[^/]+$/],
-  ["GET", /^\/api\/banking\/v1\/accounts$/],
-  ["GET", /^\/api\/banking\/v1\/accounts\/[^/]+\/transactions$/]
+  ["GET", /^\/api\/banking\/v1\/accounts$/]
 ];
 function assertAllowed(url, method) {
   const parsed = new URL(url);
@@ -29,7 +27,8 @@ function mockFetch(sequence) {
 
 (async () => {
   assert.doesNotThrow(() => assertAllowed(API + "/oauth/token", "POST"));
-  assert.doesNotThrow(() => assertAllowed(API + "/api/banking/v1/accounts/a/transactions", "GET"));
+  assert.throws(() => assertAllowed(API + "/api/banking/v1/accounts/a/transactions", "GET"), /blocked/);
+  assert.throws(() => assertAllowed(API + "/api/session/clients/user/v1/sessions/session-1", "DELETE"), /blocked/);
   assert.throws(() => assertAllowed(API + "/api/banking/v1/accounts/a/transfers", "POST"), /blocked/);
   assert.throws(() => assertAllowed(API + "/api/brokerage/v3/orders", "POST"), /blocked/);
   assert.throws(() => assertAllowed("https://evil.example/oauth/token", "POST"), /blocked/);
