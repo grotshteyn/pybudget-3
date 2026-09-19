@@ -835,7 +835,8 @@ function renderPlanWorkspace(model) {
     state.textContent=item.direction==="expense"
       ? `${formatMoney(item.planned_cent)} · Earmarked ${formatMoney(item.earmarked_cent)} · Overrun ${formatMoney(item.overrun_cent)}`
       : `${formatMoney(item.planned_cent)} · Receivable ${formatMoney(item.receivable_cent)} · Windfall ${formatMoney(item.windfall_cent)}`;
-    header.append(name,state); card.append(header);
+    const status=document.createElement("span"); status.className="occurrence-status"; status.textContent=item.materialized?"Matched":"Expected";
+    header.append(name,state,status); card.append(header);
     const actions=document.createElement("div"); actions.className="occurrence-actions";
     const edit=document.createElement("button"); edit.type="button"; edit.className="compact secondary occurrence-edit"; edit.textContent="Edit Plan"; edit.addEventListener("click",()=>editPlanFromOccurrence(item.plan_id)); actions.append(edit); card.append(actions);
     if(item.matched_transactions.length){
