@@ -402,7 +402,17 @@ function mockSupabase() {
     assert.match(await page.locator("#workspace-unmatched").textContent(), /Unmatched/);
     await page.locator("#workspace-unmatched .unmatched-transaction").click();
     assert.match(await page.locator("#assign-title").textContent(), /Example salary/);
-    await page.locator("#assign-dialog").evaluate((dialog) => dialog.close());
+    assert.equal(await page.locator("#assign-include").isChecked(), true);
+    assert.equal(await page.locator("#assign-rule").isChecked(), false);
+    assert.equal(await page.locator("#assign-group").isDisabled(), false);
+    assert.equal(await page.locator("#assign-group").inputValue(), "g1");
+    await page.selectOption("#assign-plan", "p2");
+    assert.equal(await page.locator("#assign-group").inputValue(), "");
+    await page.selectOption("#assign-group", "g1");
+    await page.locator("#assign-once").click();
+    await page.waitForFunction(() => fixture.allocationRpc?.p_transaction_id === "t1");
+    assert.equal(await page.evaluate(() => fixture.allocationRpc.p_plan_id), "p2");
+    assert.equal(await page.evaluate(() => fixture.allocationRpc.p_amount_cent), 10000);
     await page.locator("#add-plan").click();
     assert.equal(await page.locator("#plan-dialog-title").textContent(), "Add plan");
     assert.equal(await page.locator("#plan-start").inputValue(), "2026-09-01");
