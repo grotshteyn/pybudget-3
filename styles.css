@@ -388,3 +388,17 @@ body.signed-in td:nth-child(6)::before { content:'Details'; }
 .assignment-actions { display:grid; gap:10px; margin-top:16px; }
 .assignment-actions .primary { margin:0; }
 .transaction-assign { margin-top:8px; }
+
+/* Issue #40 unified month workspace states */
+#workspace-breadcrumb { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:8px 0 20px; }
+.text-button { width:auto; min-height:auto; padding:4px 6px; border:0; background:transparent; color:var(--green); }
+.group-row { width:100%; text-align:left; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.occurrence-row { border-left-width:5px; }
+.occurrence-row.planned { background:#f2f2ef; border-left-color:#8a8e88; }
+.occurrence-row.materialized { background:#fff7dc; border-left-color:#b58b20; }
+.occurrence-row summary { display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer; }
+.occurrence-marker { font-size:.8rem; }
+.occurrence-row.planned .occurrence-marker { color:#747974; }
+.occurrence-row.materialized .occurrence-marker { color:#9a7414; }
+.matched-transaction { margin:12px 0 0 20px; padding:10px 12px; border-left:2px solid #d2b65f; background:#fffdf4; }
+@media(max-width:560px){ .group-row,.occurrence-row summary{align-items:flex-start;flex-direction:column;} .matched-transaction{margin-left:8px;} }
