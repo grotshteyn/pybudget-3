@@ -10,13 +10,13 @@ const rule = {
   conditions: [{ field: "partner", operator: "contains", value: "edeka" }],
 };
 const september = {
-  plan_id: "p1", occurrence_date: "2026-09-18", amount_cent: 50000, direction: "expense",
+  plan_id: "p1", occurrence_date: "2026-09-01", amount_cent: 50000, direction: "expense",
 };
 assert.equal(occurrenceApplies(transaction, september), true);
-assert.equal(occurrenceApplies(transaction, { ...september, occurrence_date: "2026-10-18" }), false);
-assert.equal(chooseOccurrence(transaction, rule, [september]).occurrence.occurrence_date, "2026-09-18");
+assert.equal(occurrenceApplies(transaction, { ...september, occurrence_date: "2026-09-19" }), false);
+assert.equal(chooseOccurrence(transaction, rule, [september]).occurrence.occurrence_date, "2026-09-01");
 assert.equal(chooseOccurrence(transaction, rule, []).status, "unmatched");
-assert.equal(chooseOccurrence(transaction, rule, [september, { ...september }]).status, "ambiguous");
+const weekly = [\n  { ...september, occurrence_date: "2026-09-01" },\n  { ...september, occurrence_date: "2026-09-08" },\n  { ...september, occurrence_date: "2026-09-15" },\n  { ...september, occurrence_date: "2026-09-22" },\n];\nassert.equal(chooseOccurrence(transaction, rule, weekly).occurrence.occurrence_date, "2026-09-15");
 
 const result = planAutomaticMatch({ transaction, rules: [rule], occurrences: [september] });
 assert.equal(result.status, "matched");
@@ -25,7 +25,7 @@ assert.deepEqual(result.match, {
 });
 
 const manual = { id: "m1", transaction_id: "t1", plan_id: "other", source: "manual" };
-assert.equal(planAutomaticMatch({ transaction, rules: [rule], occurrences: [september], existingMatch: manual }).status, "manual");
+assert.equal(planAutomaticMatch({ transaction, rules: [rule], occurrences: [september], existingMatch: manual }).status, "manual");\nconst split = [\n  { id: "ralloc", transaction_id: "t1", plan_id: "p1", source: "rule", amount_cent: 1000 },\n  manual,\n];\nconst protectedSplit = planAutomaticMatch({ transaction, rules: [rule], occurrences: [september], existingMatch: split });\nassert.equal(protectedSplit.status, "manual");\nassert.equal(protectedSplit.allocations.length, 2);
 assert.equal(planAutomaticMatch({ transaction, rules: [rule], occurrences: [] }).status, "unmatched");
 
 console.log("Rule service tests passed.");
