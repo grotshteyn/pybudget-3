@@ -356,12 +356,12 @@ function mockSupabase() {
     await page.waitForFunction(() => {
       const rows = document.querySelectorAll("#workspace-occurrences .occurrence-row").length;
       const message = document.querySelector("#plans-message")?.textContent || "";
-      return rows === 3 || message.includes("Could not load plans");
+      return rows === 4 || message.includes("Could not load plans");
     });
     assert.equal(
       await page.locator("#workspace-occurrences .occurrence-row").count(),
-      3,
-      `Plan workspace did not render three occurrences. Browser errors: ${errors.join(" | ") || "none"}`,
+      4,
+      `Plan workspace did not render four occurrences. Browser errors: ${errors.join(" | ") || "none"}`,
     );
     assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Earmarked/);
