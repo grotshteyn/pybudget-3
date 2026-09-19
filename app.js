@@ -506,12 +506,19 @@ function createPlanFromAssignment() {
   // assignmentTransaction. Open the Plan dialog only after that close lifecycle
   // has completed so nested modal state cannot swallow the new dialog.
   elements.assignDialog.close();
-  openPlanEditor();
-  elements.planName.value = transaction.partner || transaction.description || "";
+  // Browsers do not consistently allow a second modal dialog to be opened
+  // synchronously while the first dialog is still completing its close cycle.
+  // Defer opening the Plan editor to the next task so Transactions → Assign →
+  // New Plan works in the deployed browser, not only in synthetic tests.
+  setTimeout(() => {
+    if (planCreationContext?.transaction !== transaction) return;
+    openPlanEditor();
+    elements.planName.value = transaction.partner || transaction.description || "";
   elements.planAmount.value = (Math.abs(Number(transaction.amount_cent)) / 100).toFixed(2);
   elements.planDirection.value = Number(transaction.amount_cent) < 0 ? "expense" : "income";
   fillGroupSelect(elements.planGroup, activePlanGroupId || "");
-  elements.planStart.value = transactionRuleDate(transaction) || `${navigation.month}-01`;
+    elements.planStart.value = transactionRuleDate(transaction) || `${navigation.month}-01`;
+  }, 0);
 }
 
 async function assignCurrentTransaction() {
