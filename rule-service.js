@@ -6,25 +6,35 @@ export function transactionRuleDate(transaction) {
 
 export function occurrenceApplies(transaction, occurrence) {
   const date = transactionRuleDate(transaction);
-  if (!date || !occurrence) return false;
-  return occurrence.occurrence_date === date;
+  if (!date || !occurrence?.occurrence_date) return false;
+  // Occurrences define budgeting periods. A transaction belongs to the latest
+  // occurrence for the plan that has started by the transaction date.
+  return occurrence.occurrence_date <= date;
 }
 
 export function chooseOccurrence(transaction, rule, occurrences) {
-  const candidates = (occurrences || []).filter(
-    (occurrence) =>
-      occurrence.plan_id === rule.plan_id && occurrenceApplies(transaction, occurrence),
-  );
-  if (candidates.length === 1) return { status: "matched", occurrence: candidates[0] };
+  const candidates = (occurrences || [])
+    .filter(
+      (occurrence) =>
+        occurrence.plan_id === rule.plan_id && occurrenceApplies(transaction, occurrence),
+    )
+    .sort((a, b) => b.occurrence_date.localeCompare(a.occurrence_date));
   if (!candidates.length) return { status: "unmatched", occurrence: null };
-  return { status: "ambiguous", occurrence: null, candidates };
+  return { status: "matched", occurrence: candidates[0] };
 }
 
 export function planAutomaticMatch({ transaction, rules, occurrences = [], existingMatch = null }) {
-  if (existingMatch) {
+  const existingAllocations = Array.isArray(existingMatch)
+    ? existingMatch
+    : existingMatch
+      ? [existingMatch]
+      : [];
+  if (existingAllocations.length) {
+    const manual = existingAllocations.find((allocation) => allocation.source === "manual");
     return {
-      status: existingMatch.source === "manual" ? "manual" : "already_matched",
-      match: existingMatch,
+      status: manual ? "manual" : "already_matched",
+      match: manual || existingAllocations[0],
+      allocations: existingAllocations,
     };
   }
 
@@ -89,9 +99,9 @@ export async function loadExistingMatches(client, transactionIds) {
 
   const matches = new Map();
   for (const allocation of data || []) {
-    if (!matches.has(allocation.transaction_id)) {
-      matches.set(allocation.transaction_id, allocation);
-    }
+    const current = matches.get(allocation.transaction_id) || [];
+    current.push(allocation);
+    matches.set(allocation.transaction_id, current);
   }
   return matches;
 }
