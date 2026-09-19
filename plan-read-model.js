@@ -72,6 +72,7 @@ export function buildMonthFinancialReadModel({
   occurrences,
   allocations,
   groups = [],
+  transactions = [],
 }) {
   const selectedMonth = monthKey(month);
   if (!selectedMonth) throw new Error("A selected month is required.");
@@ -241,12 +242,29 @@ export function buildMonthFinancialReadModel({
     rows.sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id));
   }
 
+  const allocatedTransactionIds = new Set();
+  for (const allocation of allocations || []) {
+    const transaction = transactionForAllocation(allocation);
+    if (!transaction || transaction.status === "cancelled") continue;
+    const transactionDate = transactionRuleDate(transaction);
+    if (transactionDate && monthKey(transactionDate) === selectedMonth) {
+      allocatedTransactionIds.add(allocation.transaction_id ?? transaction.id);
+    }
+  }
+  const unmatchedTransactions = (transactions || [])
+    .filter((transaction) => transaction.status !== "cancelled")
+    .filter((transaction) => monthKey(transactionRuleDate(transaction)) === selectedMonth)
+    .filter((transaction) => !allocatedTransactionIds.has(transaction.id))
+    .map(transactionReference)
+    .sort((a, b) => (transactionRuleDate(a) || "").localeCompare(transactionRuleDate(b) || "") || String(a.id).localeCompare(String(b.id)));
+
   function level(groupId = null) {
     if (groupId !== null && !groupById.has(groupId)) throw new Error(`Unknown plan group ${groupId}.`);
     return {
       group_id: groupId,
       groups: [...(groupsByParent.get(groupId) || [])],
       occurrences: occurrenceRows.filter((occurrence) => (occurrence.group_id ?? null) === groupId),
+      unmatched_transactions: groupId === null ? [...unmatchedTransactions] : [],
     };
   }
 
@@ -255,6 +273,7 @@ export function buildMonthFinancialReadModel({
     occurrences: occurrenceRows,
     root_occurrences: occurrenceRows.filter((occurrence) => !occurrence.group_id),
     groups: groupRows,
+    unmatched_transactions: unmatchedTransactions,
     level,
   };
 }
@@ -264,16 +283,19 @@ export async function loadMonthFinancialReadModel(client, month) {
   const selectedMonth = monthKey(month);
   if (!selectedMonth) throw new Error("A selected month is required.");
 
-  const [occurrenceResult, planResult, groupResult, allocationResult] = await Promise.all([
+  const [occurrenceResult, planResult, groupResult, allocationResult, transactionResult] = await Promise.all([
     client.rpc("plan_occurrences_for_month", { p_month: `${selectedMonth}-01` }),
     client.from("plans").select("id,name,direction,group_id"),
     client.from("plan_groups").select("id,name,parent_group_id,sort_order").order("sort_order").order("id"),
     client
       .from("plan_allocations")
       .select("id,plan_id,transaction_id,amount_cent,source,rule_id,transactions(id,status,amount_cent,booking_date,value_date,transaction_date,description,partner)"),
+    client
+      .from("transactions")
+      .select("id,status,amount_cent,booking_date,value_date,transaction_date,description,partner"),
   ]);
 
-  for (const result of [occurrenceResult, planResult, groupResult, allocationResult]) {
+  for (const result of [occurrenceResult, planResult, groupResult, allocationResult, transactionResult]) {
     if (result.error) throw result.error;
   }
 
@@ -283,5 +305,6 @@ export async function loadMonthFinancialReadModel(client, month) {
     occurrences: occurrenceResult.data || [],
     allocations: allocationResult.data || [],
     groups: groupResult.data || [],
+    transactions: transactionResult.data || [],
   });
 }
