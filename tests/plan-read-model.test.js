@@ -337,3 +337,64 @@ console.log("Plan occurrence and group financial read-model tests passed.");
   assert.deepEqual(result.occurrences.map((row) => row.actual_cent), [6000, 4000]);
   assert.ok(result.occurrences.every((row) => row.materialized));
 }
+
+
+{
+  const transaction = {
+    id: "tx-render",
+    status: "pending",
+    amount_cent: -4200,
+    transaction_date: "2026-09-08",
+    booking_date: null,
+    value_date: "2026-09-08",
+    description: "Monthly ticket",
+    partner: "Transit",
+  };
+  const result = buildMonthFinancialReadModel({
+    month: "2026-09",
+    groups: [
+      { id: "root-group", name: "Root group", parent_group_id: null, sort_order: 20 },
+      { id: "first-group", name: "First group", parent_group_id: null, sort_order: 10 },
+      { id: "child-group", name: "Child group", parent_group_id: "root-group", sort_order: 0 },
+    ],
+    plans: [
+      plan("root-plan", "Root plan"),
+      plan("child-plan", "Child plan", "expense", "root-group"),
+    ],
+    occurrences: [
+      occurrence("root-plan", "2026-09-01", 1000),
+      occurrence("child-plan", "2026-09-01", 5000),
+    ],
+    allocations: [{
+      id: "alloc-render",
+      plan_id: "child-plan",
+      transaction_id: transaction.id,
+      amount_cent: 4200,
+      source: "rule",
+      rule_id: "rule-render",
+      transaction,
+    }],
+  });
+
+  assert.deepEqual(result.level().groups.map((group) => group.id), ["first-group", "root-group"]);
+  assert.deepEqual(result.level().occurrences.map((row) => row.plan_id), ["root-plan"]);
+  assert.deepEqual(result.level("root-group").groups.map((group) => group.id), ["child-group"]);
+  assert.deepEqual(result.level("root-group").occurrences.map((row) => row.plan_id), ["child-plan"]);
+  assert.throws(() => result.level("missing"), /Unknown plan group/);
+
+  const matched = result.level("root-group").occurrences[0].matched_transactions;
+  assert.deepEqual(matched, [{
+    id: "tx-render",
+    status: "pending",
+    amount_cent: -4200,
+    booking_date: null,
+    value_date: "2026-09-08",
+    transaction_date: "2026-09-08",
+    description: "Monthly ticket",
+    partner: "Transit",
+    allocated_amount_cent: 4200,
+    allocation_id: "alloc-render",
+    allocation_source: "rule",
+    rule_id: "rule-render",
+  }]);
+}
