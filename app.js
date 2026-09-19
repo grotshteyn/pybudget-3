@@ -100,10 +100,12 @@ const elements = {
   assignDialog: document.querySelector("#assign-dialog"),
   assignTitle: document.querySelector("#assign-title"),
   assignPlan: document.querySelector("#assign-plan"),
-  assignAmount: document.querySelector("#assign-amount"),
+  assignNewPlan: document.querySelector("#assign-new-plan"),
+  assignInclude: document.querySelector("#assign-include"),
+  assignRule: document.querySelector("#assign-rule"),
   assignMessage: document.querySelector("#assign-message"),
   assignOnce: document.querySelector("#assign-once"),
-  assignPartner: document.querySelector("#assign-partner"),
+
   closeAssign: document.querySelector("#close-assign"),
 };
 
@@ -453,18 +455,15 @@ async function loadTransactions() {
 async function openAssignment(transaction) {
   assignmentTransaction = transaction;
   elements.assignTitle.textContent =
-    "Assign " + (transaction.partner || transaction.description || "transaction");
+    "Plan " + (transaction.partner || transaction.description || "transaction");
   elements.assignPlan.replaceChildren();
-  elements.assignAmount.value = (Math.abs(Number(transaction.amount_cent)) / 100).toFixed(2);
+  elements.assignInclude.checked = true;
+  elements.assignRule.checked = false;
   clearMessage(elements.assignMessage);
-  elements.assignPartner.hidden = !transaction.partner;
-  elements.assignPartner.textContent = transaction.partner
-    ? 'All transactions from "' + transaction.partner + '"'
-    : "Create partner rule";
   elements.assignDialog.showModal();
   const { data, error } = await client
     .from("plans")
-    .select("id,name,direction")
+    .select("id,name,direction,group_id")
     .eq("is_active", true)
     .order("name");
   if (assignmentTransaction !== transaction) return;
@@ -475,35 +474,47 @@ async function openAssignment(transaction) {
     option.textContent = plan.name;
     elements.assignPlan.append(option);
   });
-  if (!data?.length) showMessage(elements.assignMessage, "Create a plan first.");
+  if (!data?.length) showMessage(elements.assignMessage, "Create a Plan to continue.");
 }
 
 function selectedPlanId() {
   return elements.assignPlan.value || null;
 }
 
-async function assignCurrentTransaction(createRule = false) {
+function createPlanFromAssignment() {
+  if (!assignmentTransaction) return;
+  const transaction = assignmentTransaction;
+  elements.assignDialog.close();
+  openPlanEditor();
+  elements.planName.value = transaction.partner || transaction.description || "";
+  elements.planAmount.value = (Math.abs(Number(transaction.amount_cent)) / 100).toFixed(2);
+  elements.planDirection.value = Number(transaction.amount_cent) < 0 ? "expense" : "income";
+  fillGroupSelect(elements.planGroup, activePlanGroupId || "");
+  elements.planStart.value = transactionRuleDate(transaction) || `${navigation.month}-01`;
+}
+
+async function assignCurrentTransaction() {
   if (!client || !currentUser || !assignmentTransaction) return;
   const planId = selectedPlanId();
   if (!planId)
-    return showMessage(elements.assignMessage, "Enter a valid plan ID.");
+    return showMessage(elements.assignMessage, "Choose a Plan or create a new one.");
   elements.assignOnce.disabled = true;
-  elements.assignPartner.disabled = true;
   try {
-    const amountCent = Math.round(Number(elements.assignAmount.value) * 100);
-    if (!Number.isInteger(amountCent) || amountCent <= 0)
-      throw new Error("Enter a positive allocation amount.");
+    const includeCurrent = elements.assignInclude.checked;
+    const createRule = elements.assignRule.checked;
     let partnerRule = null;
     if (createRule) {
       partnerRule = await createPartnerRule(client, currentUser.id, assignmentTransaction, planId);
     }
-    await createManualPlanMatch(
-      client,
-      currentUser.id,
-      assignmentTransaction.id,
-      planId,
-      amountCent,
-    );
+    if (includeCurrent) {
+      await createManualPlanMatch(
+        client,
+        currentUser.id,
+        assignmentTransaction.id,
+        planId,
+        Math.abs(Number(assignmentTransaction.amount_cent)),
+      );
+    }
     if (partnerRule) {
       try {
         await applyPartnerRuleToExistingTransactions(
@@ -513,25 +524,21 @@ async function assignCurrentTransaction(createRule = false) {
           applyAutomaticRules,
         );
       } catch (ruleError) {
-        console.error("Partner rule created, but bulk application failed.", ruleError);
+        console.error("Rule created, but bulk application failed.", ruleError);
       }
     }
     elements.assignDialog.close();
+    if (navigation.view === "plans") await loadPlans();
+    else await loadTransactions();
     showMessage(
-      elements.transactionsMessage,
-      createRule
-        ? "Transaction assigned and partner rule created."
-        : "Transaction assigned to plan.",
+      navigation.view === "plans" ? elements.plansMessage : elements.transactionsMessage,
+      createRule ? "Plan assignment saved and Rule created." : "Plan assignment saved.",
       "success",
     );
   } catch (error) {
-    showMessage(
-      elements.assignMessage,
-      error.message || "Could not assign this transaction.",
-    );
+    showMessage(elements.assignMessage, error.message || "Could not assign this transaction.");
   } finally {
     elements.assignOnce.disabled = false;
-    elements.assignPartner.disabled = false;
   }
 }
 
@@ -1350,8 +1357,8 @@ if (!configured) {
   client.auth.onAuthStateChange((_event, session) => renderSession(session));
 }
 
-elements.assignOnce.addEventListener("click", () => assignCurrentTransaction(false));
-elements.assignPartner.addEventListener("click", () => assignCurrentTransaction(true));
+elements.assignOnce.addEventListener("click", assignCurrentTransaction);
+elements.assignNewPlan.addEventListener("click", createPlanFromAssignment);
 elements.closeAssign.addEventListener("click", () => elements.assignDialog.close());
 elements.assignDialog.addEventListener("close", () => {
   assignmentTransaction = null;
