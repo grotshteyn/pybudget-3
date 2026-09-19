@@ -89,11 +89,13 @@ function mockSupabase() {
           to = b;
           return this;
         },
-        in(_field, value) {
+        in(field, value) {
+          inField = field;
           ids = value;
           return this;
         },
-        neq() {
+        neq(field, value) {
+          eqFilters.push([field, value, "neq"]);
           return this;
         },
         eq(field, value) {
@@ -122,7 +124,8 @@ function mockSupabase() {
                         ? state.allocations.filter((a) => !ids || ids.includes(a[inField || "plan_id"]))
                         : state.accounts;
           if (Array.isArray(rawData) && eqFilters.length)
-            rawData = rawData.filter((row) => eqFilters.every(([field, value]) => row[field] === value));
+            rawData = rawData.filter((row) => eqFilters.every(([field, value, operator]) =>
+              operator === "neq" ? row[field] !== value : row[field] === value));
           if (single) rawData = Array.isArray(rawData) ? (rawData[0] || null) : rawData;
           const data = structuredClone(rawData);
           const error = state.error;
