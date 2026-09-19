@@ -17,8 +17,8 @@ export async function loadImportedTransactions(client, batchId) {
 }
 
 export async function applyRulesAfterImport(client, importResult, { occurrences = null } = {}) {
-  if (!importResult?.batch_id || importResult.already_imported) {
-    return { skipped: true, reason: "no_new_import", matched: 0, ambiguous: [], unmatched: [] };
+  if (!importResult?.batch_id) {
+    return { skipped: true, reason: "no_import_batch", matched: 0, ambiguous: [], unmatched: [] };
   }
 
   const transactions = await loadImportedTransactions(client, importResult.batch_id);
