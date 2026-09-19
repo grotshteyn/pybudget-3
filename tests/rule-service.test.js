@@ -16,6 +16,7 @@ assert.equal(occurrenceApplies(transaction, september), true);
 assert.equal(occurrenceApplies(transaction, { ...september, occurrence_date: "2026-09-19" }), false);
 assert.equal(chooseOccurrence(transaction, rule, [september]).occurrence.occurrence_date, "2026-09-01");
 assert.equal(chooseOccurrence(transaction, rule, []).status, "unmatched");
+assert.equal(chooseOccurrence({ ...transaction, transaction_date: "2026-08-31" }, rule, [september]).status, "unmatched");
 const weekly = [
   { ...september, occurrence_date: "2026-09-01" },
   { ...september, occurrence_date: "2026-09-08" },
