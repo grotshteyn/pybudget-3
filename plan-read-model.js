@@ -242,19 +242,20 @@ export function buildMonthFinancialReadModel({
     rows.sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id));
   }
 
-  const allocatedTransactionIds = new Set();
-  for (const allocation of allocations || []) {
-    const transaction = transactionForAllocation(allocation);
-    if (!transaction || transaction.status === "cancelled") continue;
-    const transactionDate = transactionRuleDate(transaction);
-    if (transactionDate && monthKey(transactionDate) === selectedMonth) {
-      allocatedTransactionIds.add(allocation.transaction_id ?? transaction.id);
-    }
-  }
+  // A transaction is matched only when an allocation was actually attached to a
+  // rendered occurrence above. Merely having an allocation row is insufficient.
+  const matchedTransactionIds = new Set(
+    occurrenceRows.flatMap((occurrence) => occurrence.matched_transactions.map((transaction) => transaction.id)),
+  );
   const unmatchedTransactions = (transactions || [])
     .filter((transaction) => transaction.status !== "cancelled")
-    .filter((transaction) => monthKey(transactionRuleDate(transaction)) === selectedMonth)
-    .filter((transaction) => !allocatedTransactionIds.has(transaction.id))
+    // Transactions without a usable canonical date cannot belong to a selected
+    // month, so they are excluded rather than silently classified as unmatched.
+    .filter((transaction) => {
+      const transactionDate = transactionRuleDate(transaction);
+      return transactionDate && monthKey(transactionDate) === selectedMonth;
+    })
+    .filter((transaction) => !matchedTransactionIds.has(transaction.id))
     .map(transactionReference)
     .sort((a, b) => (transactionRuleDate(a) || "").localeCompare(transactionRuleDate(b) || "") || String(a.id).localeCompare(String(b.id)));
 
