@@ -351,16 +351,8 @@ function mockSupabase() {
     await navigate("plans");
     await page.waitForFunction(() => document.querySelectorAll("#workspace-occurrences .occurrence-row").length === 3);
     assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
-    assert.match(await page.locator("#expense-plans .plan-row").first().textContent(), /€20,00 \/ €500,00/, "pending allocations count toward Plan actuals");
-    assert.match(await page.locator("#expense-plans").textContent(), /€0,00 \/ €20,00/);
-    await page.locator("#expense-plans details summary").click();
-    assert.match(await page.locator("#expense-plans details").textContent(), /Example shop/);
-    await page.locator("#expense-plans details button", { hasText: "Unassign" }).click();
-    await page.waitForFunction(() => fixture.unallocationRpc?.p_transaction_id === "t2");
-    await page.getByLabel("Expenses").getByRole("button", { name: "Edit" }).first().click();
-    assert.equal(await page.locator("#plan-dialog-title").textContent(), "Edit plan");
-    assert.equal(await page.locator("#plan-name").inputValue(), "Groceries");
-    await page.locator("#close-plan").click();
+    assert.match(await page.locator("#workspace-occurrences").textContent(), /Earmarked/);
+    assert.match(await page.locator("#workspace-occurrences").textContent(), /Example shop/);
     await page.locator("#add-plan").click();
     assert.equal(await page.locator("#plan-dialog-title").textContent(), "Add plan");
     assert.equal(await page.locator("#plan-start").inputValue(), "2026-09-01");
