@@ -37,3 +37,14 @@ This branch contains a deliberately disabled diagnostic scaffold. It must not be
 - Add redaction tests for thrown provider errors and logs.
 - Review generated diff and run the complete regression suite.
 - Deploy only to DEV after explicit approval.
+
+
+## Implemented but not deployed
+
+The scaffold now contains a real account-discovery diagnostic path. It authenticates the calling pyBudget user first, performs the comdirect password-token flow server-side, reads the session status, starts Session-TAN/2FA activation, waits for out-of-band push/photoTAN approval with a bounded retry loop, exchanges for the secondary token, and reads account metadata only.
+
+The browser receives no OAuth token, refresh token, Session-TAN identifier, PIN, or client secret. The function performs no database writes and does not request transactions. Credentials and tokens exist only in invocation memory and references are cleared in a `finally` block.
+
+Provider session termination is intentionally not called yet. The current termination semantics have not been verified strongly enough to risk invoking a guessed endpoint against a real banking connection. The first controlled DEV run therefore relies on discarding all local token material and token expiry; termination/invalidation must be verified separately before claiming that invariant.
+
+The real diagnostic remains undeployed. The standalone diagnostic page can invoke it only after deployment and only with an authenticated DEV pyBudget session.
