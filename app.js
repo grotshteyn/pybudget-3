@@ -126,6 +126,7 @@ let reviewCandidates = [],
   reviewRequest = 0;
 const loadMore = document.querySelector("#load-more");
 let assignmentTransaction = null;
+let planCreationContext = null;
 let planGroups = [];
 let activePlanGroupId = null;
 let transactionState = "idle";
@@ -484,6 +485,11 @@ function selectedPlanId() {
 function createPlanFromAssignment() {
   if (!assignmentTransaction) return;
   const transaction = assignmentTransaction;
+  planCreationContext = {
+    transaction,
+    includeCurrent: elements.assignInclude.checked,
+    createRule: elements.assignRule.checked,
+  };
   elements.assignDialog.close();
   openPlanEditor();
   elements.planName.value = transaction.partner || transaction.description || "";
@@ -731,11 +737,32 @@ async function savePlan(event) {
     is_active: true,
     updated_at: new Date().toISOString(),
   };
-  let query = elements.planId.value
-    ? client.from("plans").update(values).eq("id", elements.planId.value)
-    : client.from("plans").insert({ ...values, user_id: currentUser.id });
-  const { error } = await query;
-  if (error) return showMessage(elements.planFormMessage, error.message || "Could not save plan.");
+  const editing = Boolean(elements.planId.value);
+  let savedPlanId = elements.planId.value || null;
+  let result;
+  if (editing) {
+    result = await client.from("plans").update(values).eq("id", elements.planId.value);
+  } else {
+    result = await client.from("plans").insert({ ...values, user_id: currentUser.id }).select("id").single();
+    savedPlanId = result.data?.id || null;
+  }
+  if (result.error) return showMessage(elements.planFormMessage, result.error.message || "Could not save plan.");
+  if (!editing && planCreationContext && savedPlanId) {
+    const { transaction, includeCurrent, createRule } = planCreationContext;
+    let partnerRule = null;
+    if (createRule) partnerRule = await createPartnerRule(client, currentUser.id, transaction, savedPlanId);
+    if (includeCurrent) {
+      await createManualPlanMatch(client, currentUser.id, transaction.id, savedPlanId, Math.abs(Number(transaction.amount_cent)));
+    }
+    if (partnerRule) {
+      try {
+        await applyPartnerRuleToExistingTransactions(client, partnerRule, transaction.partner, applyAutomaticRules);
+      } catch (ruleError) {
+        console.error("Rule created, but bulk application failed.", ruleError);
+      }
+    }
+    planCreationContext = null;
+  }
   elements.planDialog.close();
   await loadPlans();
 }
@@ -1294,7 +1321,7 @@ elements.closeGroups.addEventListener("click", () => elements.groupDialog.close(
 elements.newGroup.addEventListener("click", () => resetGroupEditor());
 elements.groupForm.addEventListener("submit", saveGroup);
 elements.deleteGroup.addEventListener("click", removeGroup);
-elements.closePlan.addEventListener("click", () => elements.planDialog.close());
+elements.closePlan.addEventListener("click", () => { planCreationContext = null; elements.planDialog.close(); });
 elements.planForm.addEventListener("submit", savePlan);
 elements.deactivatePlan.addEventListener("click", deactivatePlan);
 elements.previousMonth.addEventListener("click", () => changeMonth(-1));
