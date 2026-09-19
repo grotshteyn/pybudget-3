@@ -791,3 +791,554 @@ function renderPlanWorkspace(model) {
   if(!level.groups.length&&!level.occurrences.length){const empty=document.createElement("p"); empty.className="muted"; empty.textContent="Nothing planned at this level for this month."; elements.workspaceOccurrences.append(empty);}
 }
 
+function showFeature({ focus = false, load = true } = {}) {
+  elements.transactionMonth.textContent = formatMonth(navigation.month);
+  elements.planMonth.textContent = formatMonth(navigation.month);
+  elements.reportVariant.value = navigation.report;
+  elements.reportMessage.textContent = `${navigation.report === "settlement" ? "Settlement" : "Expense summary"} is not available yet. This report is planned.`;
+  Object.entries(views).forEach(([view, id]) => {
+    document.getElementById(id).hidden = view !== navigation.view;
+  });
+  elements.navigationLinks.forEach((link) => {
+    const active = link.dataset.view === navigation.view;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+  retainNavigation();
+  document.title = `${navigation.view[0].toUpperCase()}${navigation.view.slice(1)} · PyBudget`;
+  if (focus)
+    document.querySelector(`#${views[navigation.view]} h2[tabindex]`).focus();
+  if (load && navigation.view === "accounts") loadAccounts();
+  if (load && navigation.view === "plans") loadPlans();
+  if (load && navigation.view === "transactions") {
+    loadAccounts();
+    loadTransactions();
+  }
+}
+
+function renderSession(session) {
+  const previousId = currentUser?.id;
+  const signedIn = Boolean(session?.user);
+  currentUser = session?.user || null;
+  document.body.classList.toggle("signed-in", signedIn);
+  elements.authView.hidden = signedIn;
+  elements.dashboardView.hidden = !signedIn;
+  elements.userEmail.textContent = currentUser?.email || "";
+  if (previousId !== currentUser?.id) {
+    sessionVersion++;
+    importBusy = false;
+    recentBatch = null;
+    if (importDialog.open) importDialog.close();
+    closeImportButton.disabled = false;
+    elements.csvFile.disabled = false;
+    clearMessage(importResult);
+    transactions = [];
+    ledgerOffset = 0;
+    reviewCandidates = [];
+    if (previousId) {
+        navigation.month = currentMonth();
+      }
+    transactionState = "idle";
+    elements.transactionsBody.replaceChildren();
+    renderTransactions();
+    elements.accountsList.replaceChildren();
+    elements.reconciliationList.replaceChildren();
+    elements.csvFile.value = "";
+    parsedImport = null;
+    elements.importPreview.hidden = true;
+    elements.importButton.disabled = true;
+    clearMessage(elements.importMessage);
+    elements.testField.value = "";
+  }
+  if (currentUser) {
+    if (previousId !== currentUser.id)
+      loadTestField(currentUser).catch(() => {});
+    showFeature({ load: previousId !== currentUser.id });
+  } else document.title = "Log in · PyBudget";
+}
+
+async function handleSubmit(event) {
+  event.preventDefault();
+  clearMessage(elements.authMessage);
+  if (!client)
+    return showMessage(elements.authMessage, "Supabase is not configured yet.");
+  elements.submitButton.disabled = true;
+  const credentials = {
+    email: elements.email.value.trim(),
+    password: elements.password.value,
+  };
+  try {
+    const result =
+      mode === "login"
+        ? await client.auth.signInWithPassword(credentials)
+        : await client.auth.signUp({
+            ...credentials,
+            options: {
+              emailRedirectTo: `${window.location.origin}${window.location.pathname}`,
+            },
+          });
+    if (result.error) throw result.error;
+    if (mode === "signup" && !result.data.session) {
+      showMessage(
+        elements.authMessage,
+        "Account created. Check your email to confirm it, then log in.",
+        "success",
+      );
+      elements.authForm.reset();
+    } else renderSession(result.data.session);
+  } catch (error) {
+    showMessage(
+      elements.authMessage,
+      error.message || "Authentication failed.",
+    );
+  } finally {
+    elements.submitButton.disabled = false;
+  }
+}
+
+async function resetPassword() {
+  clearMessage(elements.authMessage);
+  const email = elements.email.value.trim();
+  if (!client)
+    return showMessage(elements.authMessage, "Supabase is not configured yet.");
+  if (!email)
+    return showMessage(elements.authMessage, "Enter your email address first.");
+  const redirectTo = `${window.location.origin}${window.location.pathname}`;
+  const { error } = await client.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+  if (error) return showMessage(elements.authMessage, error.message);
+  showMessage(elements.authMessage, "Password-reset email sent.", "success");
+}
+
+async function handleFileSelection() {
+  const request = ++fileRequest,
+    version = sessionVersion;
+  parsedImport = null;
+  elements.importButton.disabled = true;
+  elements.importPreview.hidden = true;
+  clearMessage(elements.importMessage);
+  const file = elements.csvFile.files?.[0];
+  if (!file) return;
+  try {
+    const parsed = await window.PyBudgetImporter.parseComdirectFile(file);
+    if (
+      request !== fileRequest ||
+      version !== sessionVersion ||
+      !importDialog.open
+    )
+      return;
+    parsedImport = parsed;
+    elements.previewAccounts.textContent = parsedImport.accounts.length;
+    elements.previewTransactions.textContent = parsedImport.transaction_count;
+    elements.previewPending.textContent = parsedImport.pending_count;
+    elements.previewErrors.textContent = parsedImport.errors.length;
+    elements.importPreview.hidden = false;
+    if (!parsedImport.accounts.length || !parsedImport.transaction_count) {
+      throw new Error("No supported Comdirect transactions were found.");
+    }
+    elements.importButton.disabled = false;
+    showMessage(
+      elements.importMessage,
+      `Ready to import ${parsedImport.transaction_count} transactions.`,
+      "success",
+    );
+  } catch (error) {
+    if (
+      request !== fileRequest ||
+      version !== sessionVersion ||
+      !importDialog.open
+    )
+      return;
+    parsedImport = null;
+    showMessage(
+      elements.importMessage,
+      error.message || "Could not parse this CSV.",
+    );
+  }
+}
+
+async function resolveReview(reviewId, action, candidateId = null) {
+  if (!client || !currentUser) return;
+  const version = sessionVersion,
+    buttons = elements.reconciliationList.querySelectorAll("button");
+  buttons.forEach((b) => {
+    b.disabled = true;
+  });
+  try {
+    const { data: resolution, error } = await client.rpc("resolve_reconciliation_review", {
+      p_review_id: reviewId,
+      p_action: action,
+      p_candidate_transaction_id: candidateId,
+    });
+    if (error) throw error;
+    if (version !== sessionVersion) return;
+
+    // The RPC returns the canonical transaction after reconciliation. Match
+    // only that settled identity; rule failures must not undo reconciliation.
+    try {
+      const resolvedId = resolution?.transaction_id || null;
+      if (resolvedId) {
+        const { data: resolvedTransactions, error: transactionError } = await client
+          .from("transactions")
+          .select("id,account_id,status,amount_cent,booking_date,value_date,transaction_date,description,partner")
+          .eq("id", resolvedId);
+        if (transactionError) throw transactionError;
+        await applyAutomaticRules(client, resolvedTransactions || []);
+      }
+    } catch (ruleError) {
+      console.error("Rule post-processing failed after reconciliation resolution.", ruleError);
+    }
+
+    await Promise.all([loadReconciliationReviews(), loadTransactions()]);
+  } catch {
+    if (version === sessionVersion)
+      showMessage(
+        elements.reconciliationMessage,
+        "Could not resolve this transaction. Refresh and try again.",
+      );
+  } finally {
+    buttons.forEach((b) => {
+      b.disabled = false;
+    });
+  }
+}
+
+function reconciliationCard(review) {
+  const card = document.createElement("article");
+  card.className = "account-card";
+  const payload = review.booked_payload || {};
+  const heading = document.createElement("div");
+  heading.className = "account-card-heading";
+  const info = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent =
+    payload.partner || payload.description || "Booked transaction";
+  const detail = document.createElement("small");
+  detail.textContent = [
+    payload.transaction_date || payload.booking_date || "Unknown date",
+    formatMoney(Number(payload.amount_cent || 0)),
+  ].join(" · ");
+  info.append(title, detail);
+  heading.append(info);
+  card.append(heading);
+
+  const candidates = Array.isArray(review.candidate_transaction_ids)
+    ? review.candidate_transaction_ids
+    : [];
+  for (const id of candidates) {
+    const tx = reviewCandidates.find((item) => item.id === id);
+    const row = document.createElement("div");
+    row.className = "review-candidate";
+    const text = document.createElement("span");
+    text.textContent = tx
+      ? [
+          formatDate(tx),
+          tx.partner || tx.description || "Pending transaction",
+          formatMoney(tx.amount_cent),
+        ].join(" · ")
+      : "Pending candidate";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "compact secondary";
+    button.textContent = "Same transaction";
+    button.addEventListener("click", () =>
+      resolveReview(review.id, "same", id),
+    );
+    row.append(text, button);
+    card.append(row);
+  }
+  const separate = document.createElement("button");
+  separate.type = "button";
+  separate.className = "compact secondary";
+  separate.textContent = "Separate transaction";
+  separate.addEventListener("click", () =>
+    resolveReview(review.id, "separate"),
+  );
+  card.append(separate);
+  return card;
+}
+
+async function loadReconciliationReviews() {
+  if (!client || !currentUser) return;
+  const version = sessionVersion,
+    request = ++reviewRequest;
+  elements.reconciliationList.replaceChildren();
+  showMessage(
+    elements.reconciliationMessage,
+    "Loading reconciliation reviews…",
+    "loading",
+  );
+  try {
+    let reviews = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await client
+        .from("reconciliation_reviews")
+        .select("id,booked_payload,candidate_transaction_ids,status,created_at")
+        .eq("status", "open")
+        .order("created_at")
+        .order("id")
+        .range(offset, offset + 499);
+      if (error) throw error;
+      reviews.push(...data);
+      if (data.length < 500) break;
+    }
+    const ids = [
+        ...new Set(reviews.flatMap((r) => r.candidate_transaction_ids)),
+      ],
+      candidates = [];
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      const { data, error } = await client
+        .from("transactions")
+        .select(
+          "id,status,amount_cent,booking_date,value_date,transaction_date,partner,description",
+        )
+        .in("id", ids.slice(offset, offset + 100));
+      if (error) throw error;
+      candidates.push(...data);
+    }
+    if (version !== sessionVersion || request !== reviewRequest) return;
+    reviewCandidates = candidates;
+    elements.reconciliationList.replaceChildren(
+      ...reviews.map(reconciliationCard),
+    );
+    showMessage(
+      elements.reconciliationMessage,
+      reviews.length
+        ? reviews.length + " transactions need review."
+        : "No transactions need review.",
+      reviews.length ? "warning" : "empty",
+    );
+  } catch {
+    if (version === sessionVersion && request === reviewRequest)
+      showMessage(
+        elements.reconciliationMessage,
+        "Could not load reconciliation reviews. Refresh and try again.",
+      );
+  }
+}
+
+async function importTransactions() {
+  if (!client || !currentUser || !parsedImport) return;
+  const version = sessionVersion;
+  importBusy = true;
+  closeImportButton.disabled = true;
+  elements.csvFile.disabled = true;
+  elements.importButton.disabled = true;
+  showMessage(
+    elements.importMessage,
+    "Importing and reconciling transactions…",
+    "loading",
+  );
+  try {
+    const { data, error } = await client.rpc("import_comdirect_transactions", {
+      p_file_name: parsedImport.file_name,
+      p_file_sha256: parsedImport.file_sha256,
+      p_period_start: parsedImport.period_start,
+      p_period_end: parsedImport.period_end,
+      p_accounts: parsedImport.accounts,
+    });
+    if (version !== sessionVersion) return;
+    if (error) throw error;
+    let ruleResult = { skipped: true, matched: 0, ambiguous: [], unmatched: [] };
+    try {
+      ruleResult = await applyRulesAfterImport(client, data);
+    } catch (ruleError) {
+      console.error("Rule post-processing failed after successful import.", ruleError);
+    }
+    if (version !== sessionVersion) return;
+    const prefix = data.already_imported
+      ? "This exact file was already imported."
+      : "Import complete.";
+    const reviewCount = Number(data.needs_review || 0);
+    const reviewText = reviewCount ? ", needs review " + reviewCount : "";
+    const ruleText = ruleResult.matched
+      ? ", rule-matched " + ruleResult.matched
+      : ruleResult.skipped && data.batch_id
+        ? ", rules pending retry"
+        : "";
+    const rejectionText = (data.errors || [])
+      .slice(0, 5)
+      .map((e) => "Row " + e.row + ": " + e.reason)
+      .join("; ");
+    showMessage(
+      elements.importMessage,
+      prefix +
+        " Added " +
+        data.inserted +
+        ", reconciled " +
+        data.reconciled +
+        ", skipped " +
+        data.duplicates +
+        ", rejected " +
+        data.rejected +
+        reviewText +
+        ruleText +
+        "." +
+        (rejectionText ? " " + rejectionText : ""),
+      reviewCount ? "warning" : "success",
+    );
+    recentBatch = data.already_imported ? null : data.batch_id;
+    showMessage(
+      importResult,
+      elements.importMessage.textContent +
+        (recentBatch
+          ? " New and updated transactions are marked with a dot."
+          : ""),
+      reviewCount || data.rejected ? "warning" : "success",
+    );
+    navigation.view = "transactions";
+    navigation.month = currentMonth();
+    navigation.direction = "all";
+    ledgerOffset = 0;
+    importBusy = false;
+    importDialog.close();
+    showFeature({ focus: true, load: false });
+    await Promise.all([loadTransactions(), loadAccounts()]);
+  } catch {
+    if (version === sessionVersion)
+      showMessage(
+        elements.importMessage,
+        "Could not import transactions. Check your connection and try again. Retrying the same file is safe.",
+      );
+  } finally {
+    if (version === sessionVersion) {
+      importBusy = false;
+      closeImportButton.disabled = false;
+      elements.csvFile.disabled = false;
+      elements.importButton.disabled = !parsedImport;
+    }
+  }
+}
+
+function resetImportWindow() {
+  fileRequest++;
+  parsedImport = null;
+  elements.csvFile.value = "";
+  elements.importPreview.hidden = true;
+  elements.importButton.disabled = true;
+  clearMessage(elements.importMessage);
+}
+function openImportWindow() {
+  if (!currentUser || importBusy) return;
+  navigation.view = "transactions";
+  showFeature({ load: false });
+  loadAccounts();
+  loadTransactions();
+  resetImportWindow();
+  importDialog.showModal();
+  loadReconciliationReviews();
+  closeImportButton.focus();
+}
+document
+  .querySelectorAll("[data-open-import]")
+  .forEach((button) => button.addEventListener("click", openImportWindow));
+closeImportButton.addEventListener("click", () => {
+  if (!importBusy) importDialog.close();
+});
+importDialog.addEventListener("cancel", (event) => {
+  if (importBusy) event.preventDefault();
+});
+importDialog.addEventListener("close", () => {
+  resetImportWindow();
+  if (currentUser && navigation.view === "transactions")
+    document.querySelector("#transactions-title").focus();
+});
+
+elements.loginTab.addEventListener("click", () => setMode("login"));
+elements.signupTab.addEventListener("click", () => setMode("signup"));
+elements.authForm.addEventListener("submit", handleSubmit);
+elements.resetButton.addEventListener("click", resetPassword);
+window.addEventListener("hashchange", () => {
+  navigation = readNavigation();
+  ledgerOffset = 0;
+  if (currentUser) showFeature({ focus: true });
+});
+function changePlanMonth(offset) {
+  navigation.month = shiftMonth(navigation.month, offset);
+  showFeature({ load: false });
+  loadPlans();
+}
+function changeMonth(offset) {
+  navigation.month = shiftMonth(navigation.month, offset);
+  ledgerOffset = 0;
+  showFeature({ load: false });
+  loadTransactions();
+}
+elements.addPlan.addEventListener("click", () => openPlanEditor());
+elements.manageGroups.addEventListener("click", openGroupManager);
+elements.closeGroups.addEventListener("click", () => elements.groupDialog.close());
+elements.newGroup.addEventListener("click", () => resetGroupEditor());
+elements.groupForm.addEventListener("submit", saveGroup);
+elements.deleteGroup.addEventListener("click", removeGroup);
+elements.closePlan.addEventListener("click", () => elements.planDialog.close());
+elements.planForm.addEventListener("submit", savePlan);
+elements.deactivatePlan.addEventListener("click", deactivatePlan);
+elements.previousMonth.addEventListener("click", () => changeMonth(-1));
+elements.previousPlanMonth.addEventListener("click", () => changePlanMonth(-1));
+elements.nextPlanMonth.addEventListener("click", () => changePlanMonth(1));
+elements.nextMonth.addEventListener("click", () => changeMonth(1));
+loadMore.addEventListener("click", () => {
+  ledgerOffset = transactions.length;
+  loadTransactions();
+});
+elements.reportVariant.addEventListener("change", () => {
+  navigation.report = elements.reportVariant.value;
+  showFeature({ load: false });
+});
+elements.refreshAccounts.addEventListener("click", loadAccounts);
+elements.csvFile.addEventListener("change", handleFileSelection);
+elements.importButton.addEventListener("click", importTransactions);
+elements.refreshReconciliation.addEventListener(
+  "click",
+  loadReconciliationReviews,
+);
+elements.testFieldForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!client || !currentUser) return;
+  elements.saveFieldButton.disabled = true;
+  clearMessage(elements.dataMessage);
+  const { error } = await client.from("user_test_data").upsert(
+    {
+      user_id: currentUser.id,
+      value: elements.testField.value,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+  elements.saveFieldButton.disabled = false;
+  if (error) return showMessage(elements.dataMessage, error.message);
+  showMessage(elements.dataMessage, "Saved privately to Supabase.", "success");
+});
+elements.logoutButton.addEventListener("click", async () => {
+  elements.logoutButton.disabled = true;
+  try {
+    if (client) {
+      const { error } = await client.auth.signOut();
+      if (error) throw error;
+    }
+    retainNavigation();
+    renderSession(null);
+  } catch {
+    window.alert("Could not log out. Check your connection and try again.");
+  } finally {
+    elements.logoutButton.disabled = false;
+  }
+});
+
+if (!configured) {
+  elements.setupWarning.hidden = false;
+  renderSession(null);
+} else {
+  client.auth.getSession().then(({ data }) => renderSession(data.session));
+  client.auth.onAuthStateChange((_event, session) => renderSession(session));
+}
+
+elements.assignOnce.addEventListener("click", () => assignCurrentTransaction(false));
+elements.assignPartner.addEventListener("click", () => assignCurrentTransaction(true));
+elements.closeAssign.addEventListener("click", () => elements.assignDialog.close());
+elements.assignDialog.addEventListener("close", () => {
+  assignmentTransaction = null;
+  clearMessage(elements.assignMessage);
+});
