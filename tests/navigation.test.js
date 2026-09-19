@@ -71,6 +71,10 @@ function mockSupabase() {
           single = true;
           return this.then(({ data, error }) => ({ data, error }));
         },
+        single() {
+          single = true;
+          return this.then(({ data, error }) => ({ data, error }));
+        },
         order() {
           return this;
         },
@@ -374,6 +378,7 @@ function mockSupabase() {
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Earmarked/);
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Example shop/);
     await page.locator("#workspace-occurrences .occurrence-edit").first().click();
+    await page.locator("#plan-dialog").waitFor({ state: "visible" });
     assert.equal(await page.locator("#plan-dialog-title").textContent(), "Edit plan");
     assert.equal(await page.locator("#plan-name").inputValue(), "Groceries");
     assert.equal(await page.locator("#plan-schedule").inputValue(), "monthly");
