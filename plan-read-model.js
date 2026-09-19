@@ -183,6 +183,7 @@ export function buildMonthFinancialReadModel({
       id: group.id,
       name: group.name,
       parent_group_id: group.parent_group_id ?? null,
+      sort_order: group.sort_order ?? 0,
       ...totals,
       child_group_ids: [...childGroupIds],
       direct_occurrence_ids: (directOccurrences.get(groupId) || []).map((row) => row.id),
@@ -200,4 +201,31 @@ export function buildMonthFinancialReadModel({
     root_occurrences: occurrenceRows.filter((occurrence) => !occurrence.group_id),
     groups: [...groupStates.values()],
   };
+}
+
+
+export async function loadMonthFinancialReadModel(client, month) {
+  const selectedMonth = monthKey(month);
+  if (!selectedMonth) throw new Error("A selected month is required.");
+
+  const [occurrenceResult, planResult, groupResult, allocationResult] = await Promise.all([
+    client.rpc("plan_occurrences_for_month", { p_month: `${selectedMonth}-01` }),
+    client.from("plans").select("id,name,direction,group_id"),
+    client.from("plan_groups").select("id,name,parent_group_id,sort_order").order("sort_order").order("id"),
+    client
+      .from("plan_allocations")
+      .select("id,plan_id,transaction_id,amount_cent,source,rule_id,transactions(id,status,amount_cent,booking_date,value_date,transaction_date)"),
+  ]);
+
+  for (const result of [occurrenceResult, planResult, groupResult, allocationResult]) {
+    if (result.error) throw result.error;
+  }
+
+  return buildMonthFinancialReadModel({
+    month: selectedMonth,
+    plans: planResult.data || [],
+    occurrences: occurrenceResult.data || [],
+    allocations: allocationResult.data || [],
+    groups: groupResult.data || [],
+  });
 }
