@@ -14,7 +14,7 @@ assert.match(app, /createManualPlanMatch/);
 assert.match(app, /createPartnerRule/);
 assert.match(actions, /applyPartnerRuleToExistingTransactions/);
 assert.match(actions, /\.neq\("status", "cancelled"\)/);
-assert.match(actions, /\.ilike\("partner"/);
+assert.match(actions, /\.ilike\("partner"/);\nassert.match(actions, /typeof applyRules !== "function"/);\nassert.match(actions, /return applyRules\(client, transactions \|\| \[\]\)/);\nassert.doesNotMatch(actions, /await import\("\.\/rule-service\.js"\)/);
 assert.match(app, /applyPartnerRuleToExistingTransactions/);
 assert.match(app, /Rule post-processing failed after reconciliation resolution/);
 assert.match(app, /resolution\?\.transaction_id/);
