@@ -438,10 +438,7 @@ function mockSupabase() {
     await page.waitForFunction(() => document.querySelector("#assign-group")?.disabled === false);
     assert.equal(await page.locator("#assign-plan").inputValue(), "p1");
     assert.equal(await page.locator("#assign-group").inputValue(), "g1");
-    await page.locator("#assign-group").evaluate((select) => {
-      select.value = "";
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    });
+    await page.locator("#assign-group").evaluate((select) => { select.value = ""; });
     assert.equal(await page.locator("#assign-group").inputValue(), "");
     await page.locator("#assign-once").click();
     await page.waitForFunction(() => fixture.allocationRpc?.p_transaction_id === "t1");
