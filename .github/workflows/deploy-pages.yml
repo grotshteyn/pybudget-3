@@ -56,6 +56,8 @@ jobs:
           cp preview/styles.css site/dev/
           cp preview/app.js site/dev/
           cp preview/importer.js site/dev/
+          cp preview/plan-read-model.js site/dev/
+          cp preview/plan-group-service.js site/dev/
           cp preview/rules.js site/dev/
           cp preview/rule-service.js site/dev/
           cp preview/rule-import-orchestrator.js site/dev/
