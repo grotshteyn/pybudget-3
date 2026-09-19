@@ -15,6 +15,19 @@ function transactionForAllocation(allocation) {
   return Array.isArray(related) ? related[0] ?? null : related;
 }
 
+function transactionReference(transaction) {
+  return {
+    id: transaction.id,
+    status: transaction.status,
+    amount_cent: cents(transaction.amount_cent),
+    booking_date: transaction.booking_date ?? null,
+    value_date: transaction.value_date ?? null,
+    transaction_date: transaction.transaction_date ?? null,
+    description: transaction.description ?? null,
+    partner: transaction.partner ?? null,
+  };
+}
+
 function emptyTotals() {
   return {
     expense_planned_cent: 0,
@@ -85,6 +98,7 @@ export function buildMonthFinancialReadModel({
         windfall_cent: 0,
         materialized: false,
         allocations: [],
+        matched_transactions: [],
       };
     })
     .sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date) || a.plan_id.localeCompare(b.plan_id));
@@ -121,6 +135,13 @@ export function buildMonthFinancialReadModel({
       rule_id: allocation.rule_id ?? null,
       transaction_status: transaction.status,
       transaction_date: transactionDate,
+    });
+    occurrence.matched_transactions.push({
+      ...transactionReference(transaction),
+      allocated_amount_cent: amount,
+      allocation_id: allocation.id,
+      allocation_source: allocation.source,
+      rule_id: allocation.rule_id ?? null,
     });
   }
 
@@ -208,11 +229,33 @@ export function buildMonthFinancialReadModel({
     }
   }
 
+  const groupRows = [...groupStates.values()];
+  const groupsByParent = new Map();
+  for (const group of groupRows) {
+    const key = group.parent_group_id ?? null;
+    const rows = groupsByParent.get(key) || [];
+    rows.push(group);
+    groupsByParent.set(key, rows);
+  }
+  for (const rows of groupsByParent.values()) {
+    rows.sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id));
+  }
+
+  function level(groupId = null) {
+    if (groupId !== null && !groupById.has(groupId)) throw new Error(`Unknown plan group ${groupId}.`);
+    return {
+      group_id: groupId,
+      groups: [...(groupsByParent.get(groupId) || [])],
+      occurrences: occurrenceRows.filter((occurrence) => (occurrence.group_id ?? null) === groupId),
+    };
+  }
+
   return {
     month: selectedMonth,
     occurrences: occurrenceRows,
     root_occurrences: occurrenceRows.filter((occurrence) => !occurrence.group_id),
-    groups: [...groupStates.values()],
+    groups: groupRows,
+    level,
   };
 }
 
@@ -227,7 +270,7 @@ export async function loadMonthFinancialReadModel(client, month) {
     client.from("plan_groups").select("id,name,parent_group_id,sort_order").order("sort_order").order("id"),
     client
       .from("plan_allocations")
-      .select("id,plan_id,transaction_id,amount_cent,source,rule_id,transactions(id,status,amount_cent,booking_date,value_date,transaction_date)"),
+      .select("id,plan_id,transaction_id,amount_cent,source,rule_id,transactions(id,status,amount_cent,booking_date,value_date,transaction_date,description,partner)"),
   ]);
 
   for (const result of [occurrenceResult, planResult, groupResult, allocationResult]) {
