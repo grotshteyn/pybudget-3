@@ -777,6 +777,19 @@ async function deactivatePlan() {
   await loadPlans();
 }
 
+async function editPlanFromOccurrence(planId) {
+  if (!client || !planId) return;
+  const { data, error } = await client
+    .from("plans")
+    .select("id,name,amount_cent,direction,group_id,schedule_type,start_date,end_date,is_active")
+    .eq("id", planId)
+    .maybeSingle();
+  if (error || !data) {
+    return showMessage(elements.plansMessage, error?.message || "Could not load this Plan.");
+  }
+  openPlanEditor(data);
+}
+
 async function loadPlans() {
   if (!client || !currentUser) return;
   showMessage(elements.plansMessage, "Loading plans…", "loading");
@@ -821,7 +834,8 @@ function renderPlanWorkspace(model) {
     state.textContent=item.direction==="expense"
       ? `${formatMoney(item.planned_cent)} · Earmarked ${formatMoney(item.earmarked_cent)} · Overrun ${formatMoney(item.overrun_cent)}`
       : `${formatMoney(item.planned_cent)} · Receivable ${formatMoney(item.receivable_cent)} · Windfall ${formatMoney(item.windfall_cent)}`;
-    summary.append(name,state); details.append(summary);
+    const edit=document.createElement("button"); edit.type="button"; edit.className="compact secondary occurrence-edit"; edit.textContent="Edit Plan"; edit.addEventListener("click",async(event)=>{event.preventDefault();event.stopPropagation();await editPlanFromOccurrence(item.plan_id);});
+    summary.append(name,state); details.append(summary,edit);
     item.matched_transactions.forEach((tx)=>{const line=document.createElement("div"); line.className="assignment-actions matched-transaction"; const label=document.createElement("span"); label.textContent=`${tx.partner||tx.description||"Transaction"} · ${formatMoney(tx.allocated_amount_cent)}`; line.append(label); details.append(line);});
     elements.workspaceOccurrences.append(details);
   });
