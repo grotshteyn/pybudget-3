@@ -14,11 +14,13 @@ assert.deepStrictEqual(api.credentials({
 });
 
 assert.throws(() => api.assertAllowedAction("transfer"), /Blocked/);
-assert.strictEqual(api.assertAllowedAction("list-transactions"), "list-transactions");
+assert.strictEqual(api.assertAllowedAction("account-diagnostic"), "account-diagnostic");
+assert.throws(() => api.assertAllowedAction("list-transactions"), /Blocked/);
+assert.throws(() => api.assertAllowedAction("terminate-session"), /Blocked/);
 
 const raw = {
   ok: true,
-  stage: "transactions",
+  stage: "accounts",
   account_count: 2,
   transaction_count: 17,
   access_token: "must-not-leak",
@@ -29,9 +31,9 @@ const raw = {
 const diagnostic = api.sanitizeDiagnostic(raw);
 assert.deepStrictEqual(diagnostic, {
   ok: true,
-  stage: "transactions",
+  stage: "accounts",
   account_count: 2,
-  transaction_count: 17,
+  transaction_count: null,
   session_terminated: false,
   credentials_retained: false,
   transactions_imported: 0,
