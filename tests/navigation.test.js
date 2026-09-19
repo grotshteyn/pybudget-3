@@ -58,6 +58,7 @@ function mockSupabase() {
       let changes,
         accountId,
         ids,
+        inField,
         from = 0,
         to = 999;
       const builder = {
@@ -101,13 +102,13 @@ function mockSupabase() {
               : table === "reconciliation_reviews"
                 ? (state.reviews || []).slice(from, to + 1)
                 : table === "transactions"
-                  ? state.rows.filter((r) => !ids || ids.includes(r.id))
+                  ? state.rows.filter((r) => !ids || ids.includes(r[inField || "id"]))
                   : table === "plan_groups"
                     ? (state.groups || [])
                     : table === "plans"
                     ? [...new Map(state.plans.map((p) => [p.id, p])).values()].filter((p) => !ids || ids.includes(p.id))
                     : table === "plan_allocations"
-                      ? state.allocations.filter((a) => !ids || ids.includes(a.plan_id))
+                      ? state.allocations.filter((a) => !ids || ids.includes(a[inField || "plan_id"]))
                       : state.accounts,
           );
           const error = state.error;
