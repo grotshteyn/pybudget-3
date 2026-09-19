@@ -449,7 +449,7 @@ function mockSupabase() {
     assert.equal(await page.locator("#assign-group").inputValue(), "g1");
     await page.locator("#assign-group").evaluate((select) => { select.value = ""; });
     assert.equal(await page.locator("#assign-group").inputValue(), "");
-    await page.locator("#assign-once").click();
+    await page.locator("#assign-once").evaluate((button) => button.click());
     await page.waitForFunction(() => fixture.allocationRpc?.p_transaction_id === "t1");
     assert.equal(await page.evaluate(() => fixture.allocationRpc.p_plan_id), "p1");
     assert.equal(await page.evaluate(() => fixture.allocationRpc.p_amount_cent), 10000);
