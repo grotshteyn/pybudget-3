@@ -395,7 +395,7 @@ function mockSupabase() {
     assert.equal(await page.locator("#plan-schedule").inputValue(), "monthly");
     assert.equal(await page.locator("#plan-start").inputValue(), "2026-01-01");
     await page.locator("#plan-dialog").evaluate((dialog) => dialog.close());
-    await page.locator("#plan-breadcrumb button").first().click();
+    await page.locator("#workspace-breadcrumb button").first().click();
     await page.waitForFunction(() => document.querySelector("#workspace-unmatched-section")?.hidden === false);
     assert.equal(await page.locator("#workspace-unmatched .unmatched-transaction").count(), 1);
     assert.match(await page.locator("#workspace-unmatched").textContent(), /Example salary/);
