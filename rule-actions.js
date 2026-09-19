@@ -58,7 +58,7 @@ export async function createPartnerRule(client, userId, transaction, planId) {
 }
 
 
-export async function applyPartnerRuleToExistingTransactions(client, rule, partner) {
+export async function applyPartnerRuleToExistingTransactions(client, rule, partner, applyRules) {
   const normalizedPartner = String(partner || "").trim();
   if (!normalizedPartner) return { matched: 0, ambiguous: [], unmatched: [] };
 
