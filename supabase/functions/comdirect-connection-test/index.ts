@@ -8,9 +8,7 @@ const ALLOWED = [
   { method: "GET", path: /^\/api\/session\/clients\/user\/v1\/sessions$/ },
   { method: "POST", path: /^\/api\/session\/clients\/user\/v1\/sessions\/[^/]+\/validate$/ },
   { method: "PATCH", path: /^\/api\/session\/clients\/user\/v1\/sessions\/[^/]+$/ },
-  { method: "DELETE", path: /^\/api\/session\/clients\/user\/v1\/sessions\/[^/]+$/ },
-  { method: "GET", path: /^\/api\/banking\/v1\/accounts$/ },
-  { method: "GET", path: /^\/api\/banking\/v1\/accounts\/[^/]+\/transactions$/ }
+  { method: "GET", path: /^\/api\/banking\/v1\/accounts$/ }
 ];
 
 type Credentials = { client_id: string; client_secret: string; access_number: string; pin: string };
@@ -105,12 +103,6 @@ async function listAccounts(fetcher: typeof fetch, token: string, sessionId: str
   const data = await expectJson(response, "accounts_failed");
   return Array.isArray(data?.values) ? data.values : Array.isArray(data) ? data : [];
 }
-async function terminateSession(fetcher: typeof fetch, token: string, sessionId: string, identifier: string) {
-  // Kept behind the allowlist but not assumed to be supported until the live API confirms termination semantics.
-  const response = await providerFetch(fetcher, "/api/session/clients/user/v1/sessions/" + encodeURIComponent(identifier),
-    { method: "DELETE", headers: providerHeaders(token, sessionId) });
-  return response.ok;
-}
 function diagnostic(stage: string, values: Partial<Diagnostic> = {}): Diagnostic {
   return { ok: false, stage, account_count: null, transaction_count: null, session_terminated: false,
     credentials_retained: false, transactions_imported: 0, error_code: null, ...values };
@@ -121,12 +113,17 @@ function safeFailure(error: unknown): Diagnostic {
 }
 
 export { assertAllowed, requireCredentials, requestInfo, providerFetch, passwordToken, sessionStatus, beginTwoFactor,
-  activateTwoFactor, secondaryToken, listAccounts, terminateSession, diagnostic, safeFailure };
+  activateTwoFactor, secondaryToken, listAccounts, diagnostic, safeFailure };
 
-const DIAGNOSTIC_ALLOWED_USER_IDS = new Set(["d475eda6-4f7d-4347-a800-ce33ad9e706f"]);
+function diagnosticAllowedUserIds() {
+  return new Set((Deno.env.get("COMDIRECT_DIAGNOSTIC_ALLOWED_USER_IDS") || "")
+    .split(",").map((value) => value.trim()).filter(Boolean));
+}
 
 function assertDiagnosticUserAllowed(userId: string) {
-  if (!DIAGNOSTIC_ALLOWED_USER_IDS.has(userId)) throw new Error("diagnostic_user_not_allowed");
+  const allowed = diagnosticAllowedUserIds();
+  if (!allowed.size) throw new Error("diagnostic_allowlist_not_configured");
+  if (!allowed.has(userId)) throw new Error("diagnostic_user_not_allowed");
   return userId;
 }
 
@@ -189,7 +186,7 @@ async function runAccountDiagnostic(fetcher: typeof fetch, credentials: Credenti
   }
 }
 
-export { DIAGNOSTIC_ALLOWED_USER_IDS, assertDiagnosticUserAllowed, requirePyBudgetUser, runAccountDiagnostic };
+export { diagnosticAllowedUserIds, assertDiagnosticUserAllowed, requirePyBudgetUser, runAccountDiagnostic };
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ ok: false, error_code: "method_not_allowed" }, 405);
