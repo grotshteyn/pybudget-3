@@ -78,6 +78,9 @@ begin
       raise exception 'Candidate transaction is no longer pending';
     end if;
 
+    -- The canonical pending row keeps its id, so existing plan_allocations
+    -- remain attached when the bank later confirms it as booked.
+
     update public.reconciliation_reviews set
       status = 'resolved_same',
       resolved_transaction_id = v_transaction_id,
