@@ -122,7 +122,8 @@ let reviewCandidates = [],
   reviewRequest = 0;
 const loadMore = document.querySelector("#load-more");
 let assignmentTransaction = null;
-let planGroups = [];\nlet activePlanGroupId = null;
+let planGroups = [];
+let activePlanGroupId = null;
 let transactionState = "idle";
 let transactionError = "";
 let sessionVersion = 0;
