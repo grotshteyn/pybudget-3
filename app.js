@@ -835,7 +835,8 @@ function renderPlanWorkspace(model) {
       ? `${formatMoney(item.planned_cent)} · Earmarked ${formatMoney(item.earmarked_cent)} · Overrun ${formatMoney(item.overrun_cent)}`
       : `${formatMoney(item.planned_cent)} · Receivable ${formatMoney(item.receivable_cent)} · Windfall ${formatMoney(item.windfall_cent)}`;
     const edit=document.createElement("button"); edit.type="button"; edit.className="compact secondary occurrence-edit"; edit.textContent="Edit Plan"; edit.addEventListener("click",async(event)=>{event.preventDefault();event.stopPropagation();await editPlanFromOccurrence(item.plan_id);});
-    summary.append(name,state); details.append(summary,edit);
+    summary.append(name,state); details.append(summary);
+    const actions=document.createElement("div"); actions.className="occurrence-actions"; actions.append(edit); details.append(actions);
     item.matched_transactions.forEach((tx)=>{const line=document.createElement("div"); line.className="assignment-actions matched-transaction"; const label=document.createElement("span"); label.textContent=`${tx.partner||tx.description||"Transaction"} · ${formatMoney(tx.allocated_amount_cent)}`; line.append(label); details.append(line);});
     elements.workspaceOccurrences.append(details);
   });
