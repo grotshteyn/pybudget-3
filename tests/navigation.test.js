@@ -58,6 +58,8 @@ function mockSupabase() {
       let changes,
         accountId,
         ids,
+        eqFilters = [],
+        single = false,
         inField,
         from = 0,
         to = 999;
@@ -66,6 +68,7 @@ function mockSupabase() {
           return this;
         },
         maybeSingle() {
+          single = true;
           return this;
         },
         order() {
@@ -86,8 +89,9 @@ function mockSupabase() {
         neq() {
           return this;
         },
-        eq(_field, value) {
-          accountId = value;
+        eq(field, value) {
+          eqFilters.push([field, value]);
+          if (table === "bank_accounts" && field === "id") accountId = value;
           return this;
         },
         update(value) {
@@ -96,7 +100,7 @@ function mockSupabase() {
         },
         then(resolve, reject) {
           state.calls.push(table);
-          const data = structuredClone(
+          let rawData =
             table === "user_test_data"
               ? { value: "Synthetic storage value" }
               : table === "reconciliation_reviews"
@@ -106,11 +110,14 @@ function mockSupabase() {
                   : table === "plan_groups"
                     ? (state.groups || [])
                     : table === "plans"
-                    ? [...new Map(state.plans.map((p) => [p.id, p])).values()].filter((p) => !ids || ids.includes(p.id))
-                    : table === "plan_allocations"
-                      ? state.allocations.filter((a) => !ids || ids.includes(a[inField || "plan_id"]))
-                      : state.accounts,
-          );
+                      ? [...new Map(state.plans.map((p) => [p.id, p])).values()].filter((p) => !ids || ids.includes(p.id))
+                      : table === "plan_allocations"
+                        ? state.allocations.filter((a) => !ids || ids.includes(a[inField || "plan_id"]))
+                        : state.accounts;
+          if (Array.isArray(rawData) && eqFilters.length)
+            rawData = rawData.filter((row) => eqFilters.every(([field, value]) => row[field] === value));
+          if (single) rawData = Array.isArray(rawData) ? (rawData[0] || null) : rawData;
+          const data = structuredClone(rawData);
           const error = state.error;
           return new Promise((done) =>
             setTimeout(() => {
