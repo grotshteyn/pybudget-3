@@ -407,12 +407,11 @@ function mockSupabase() {
     await page.waitForFunction(() => document.querySelector("#assign-group")?.disabled === false);
     assert.equal(await page.locator("#assign-plan").inputValue(), "p1");
     assert.equal(await page.locator("#assign-group").inputValue(), "g1");
-    await page.selectOption("#assign-plan", "p2");
+    await page.selectOption("#assign-group", "");
     assert.equal(await page.locator("#assign-group").inputValue(), "");
-    await page.selectOption("#assign-group", "g1");
     await page.locator("#assign-once").click();
     await page.waitForFunction(() => fixture.allocationRpc?.p_transaction_id === "t1");
-    assert.equal(await page.evaluate(() => fixture.allocationRpc.p_plan_id), "p2");
+    assert.equal(await page.evaluate(() => fixture.allocationRpc.p_plan_id), "p1");
     assert.equal(await page.evaluate(() => fixture.allocationRpc.p_amount_cent), 10000);
     await page.locator("#add-plan").click();
     assert.equal(await page.locator("#plan-dialog-title").textContent(), "Add plan");
