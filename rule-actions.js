@@ -56,3 +56,19 @@ export async function createPartnerRule(client, userId, transaction, planId) {
   }
   return rule;
 }
+
+
+export async function applyPartnerRuleToExistingTransactions(client, rule, partner) {
+  const normalizedPartner = String(partner || "").trim();
+  if (!normalizedPartner) return { matched: 0, ambiguous: [], unmatched: [] };
+
+  const { data: transactions, error } = await client
+    .from("transactions")
+    .select("id,account_id,status,amount_cent,booking_date,value_date,transaction_date,description,partner")
+    .neq("status", "cancelled")
+    .ilike("partner", `%${normalizedPartner}%`);
+  if (error) throw error;
+
+  const { applyAutomaticRules } = await import("./rule-service.js");
+  return applyAutomaticRules(client, transactions || []);
+}
