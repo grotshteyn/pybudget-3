@@ -123,6 +123,13 @@ function safeFailure(error: unknown): Diagnostic {
 export { assertAllowed, requireCredentials, requestInfo, providerFetch, passwordToken, sessionStatus, beginTwoFactor,
   activateTwoFactor, secondaryToken, listAccounts, terminateSession, diagnostic, safeFailure };
 
+const DIAGNOSTIC_ALLOWED_USER_IDS = new Set(["d475eda6-4f7d-4347-a800-ce33ad9e706f"]);
+
+function assertDiagnosticUserAllowed(userId: string) {
+  if (!DIAGNOSTIC_ALLOWED_USER_IDS.has(userId)) throw new Error("diagnostic_user_not_allowed");
+  return userId;
+}
+
 async function requirePyBudgetUser(req: Request) {
   const authorization = req.headers.get("authorization") || "";
   if (!authorization.startsWith("Bearer ")) throw new Error("pybudget_auth_required");
@@ -135,7 +142,7 @@ async function requirePyBudgetUser(req: Request) {
   if (!response.ok) throw new Error("pybudget_auth_invalid");
   const user = await response.json();
   if (!user?.id) throw new Error("pybudget_auth_invalid");
-  return user.id as string;
+  return assertDiagnosticUserAllowed(user.id as string);
 }
 
 async function runAccountDiagnostic(fetcher: typeof fetch, credentials: Credentials, wait: (ms: number) => Promise<void>) {
@@ -182,7 +189,7 @@ async function runAccountDiagnostic(fetcher: typeof fetch, credentials: Credenti
   }
 }
 
-export { requirePyBudgetUser, runAccountDiagnostic };
+export { DIAGNOSTIC_ALLOWED_USER_IDS, assertDiagnosticUserAllowed, requirePyBudgetUser, runAccountDiagnostic };
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ ok: false, error_code: "method_not_allowed" }, 405);
