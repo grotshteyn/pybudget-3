@@ -107,6 +107,17 @@ function mockSupabase() {
           changes = value;
           return this;
         },
+        insert(value) {
+          const rows = Array.isArray(value) ? value : [value];
+          const collections = { plans: state.plans, plan_groups: state.groups, transactions: state.rows };
+          const collection = collections[table];
+          if (collection) rows.forEach((row, index) => collection.push({ id: row.id || `synthetic-${table}-${collection.length + index + 1}`, ...row }));
+          return this;
+        },
+        upsert(value) {
+          if (table === "user_test_data") state.testData = { ...(state.testData || {}), ...value };
+          return this;
+        },
         then(resolve, reject) {
           state.calls.push(table);
           let rawData =
