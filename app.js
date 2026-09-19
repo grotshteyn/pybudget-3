@@ -276,6 +276,15 @@ function formatDate(transaction) {
   return new Intl.DateTimeFormat("en-GB").format(new Date(`${value}T00:00:00`));
 }
 
+function transactionPlanDate(transaction) {
+  return (
+    transaction.transaction_date ||
+    transaction.booking_date ||
+    transaction.value_date ||
+    null
+  );
+}
+
 async function loadTestField(user) {
   elements.testField.value = "";
   clearMessage(elements.dataMessage);
@@ -517,7 +526,7 @@ function createPlanFromAssignment() {
   elements.planAmount.value = (Math.abs(Number(transaction.amount_cent)) / 100).toFixed(2);
   elements.planDirection.value = Number(transaction.amount_cent) < 0 ? "expense" : "income";
   fillGroupSelect(elements.planGroup, activePlanGroupId || "");
-    elements.planStart.value = transactionRuleDate(transaction) || `${navigation.month}-01`;
+    elements.planStart.value = transactionPlanDate(transaction) || `${navigation.month}-01`;
   }, 0);
 }
 
