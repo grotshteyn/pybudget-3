@@ -44,6 +44,8 @@ const elements = {
   workspaceBreadcrumb: document.querySelector("#workspace-breadcrumb"),
   workspaceGroups: document.querySelector("#workspace-groups"),
   workspaceOccurrences: document.querySelector("#workspace-occurrences"),
+  workspaceUnmatchedSection: document.querySelector("#workspace-unmatched-section"),
+  workspaceUnmatched: document.querySelector("#workspace-unmatched"),
   addPlan: document.querySelector("#add-plan"),
   manageGroups: document.querySelector("#manage-groups"),
   groupDialog: document.querySelector("#group-dialog"),
@@ -761,6 +763,7 @@ function renderPlanWorkspace(model) {
   elements.incomePlans.replaceChildren();
   elements.workspaceGroups.replaceChildren();
   elements.workspaceOccurrences.replaceChildren();
+  elements.workspaceUnmatched.replaceChildren();
   elements.workspaceBreadcrumb.replaceChildren();
   const root=document.createElement("button"); root.type="button"; root.className="text-button"; root.textContent="Plans";
   root.addEventListener("click",()=>{activePlanGroupId=null;renderPlanWorkspace(model);}); elements.workspaceBreadcrumb.append(root);
@@ -788,6 +791,18 @@ function renderPlanWorkspace(model) {
     item.matched_transactions.forEach((tx)=>{const line=document.createElement("div"); line.className="assignment-actions matched-transaction"; const label=document.createElement("span"); label.textContent=`${tx.partner||tx.description||"Transaction"} · ${formatMoney(tx.allocated_amount_cent)}`; line.append(label); details.append(line);});
     elements.workspaceOccurrences.append(details);
   });
+  elements.workspaceUnmatchedSection.hidden = activePlanGroupId !== null;
+  if (activePlanGroupId === null) {
+    level.unmatched_transactions.forEach((tx) => {
+      const row=document.createElement("button"); row.type="button"; row.className="account-card plan-row unmatched-transaction";
+      const identity=document.createElement("strong"); identity.textContent=tx.partner||tx.description||"Transaction";
+      const state=document.createElement("span"); state.textContent=`Unmatched · ${formatMoney(Math.abs(tx.amount_cent))}`;
+      const cue=document.createElement("span"); cue.className="unmatched-marker"; cue.setAttribute("aria-hidden","true"); cue.textContent="!";
+      identity.prepend(cue, document.createTextNode(" "));
+      row.append(identity,state); row.addEventListener("click",()=>openAssignment(tx)); elements.workspaceUnmatched.append(row);
+    });
+    if(!level.unmatched_transactions.length){const empty=document.createElement("p"); empty.className="muted"; empty.textContent="No unmatched transactions this month."; elements.workspaceUnmatched.append(empty);}
+  }
   if(!level.groups.length&&!level.occurrences.length){const empty=document.createElement("p"); empty.className="muted"; empty.textContent="Nothing planned at this level for this month."; elements.workspaceOccurrences.append(empty);}
 }
 
