@@ -44,3 +44,17 @@ assert.match(allocationSql, /p_source is null or source = p_source/i);
 assert.match(allocationSql, /where id = p_transaction_id and user_id = v_user/i);
 assert.match(allocationSql, /where id = p_plan_id and user_id = v_user and is_active/i);
 console.log("Plan allocation SQL contracts passed.");
+
+
+const stateSql = fs.readFileSync(path.join(root, "supabase/migrations/20260919_issue_39_plan_states.sql"), "utf8");
+assert.match(stateSql, /plan_states_for_month/);
+assert.match(stateSql, /plan_occurrences_for_month\(p_month\)/);
+assert.match(stateSql, /sum\(o\.amount_cent\).*planned_cent/s);
+assert.match(stateSql, /sum\(a\.amount_cent\).*actual_cent/s);
+assert.match(stateSql, /t\.status <> 'cancelled'/);
+assert.match(stateSql, /coalesce\(t\.transaction_date, t\.booking_date, t\.value_date\)/);
+assert.match(stateSql, /greatest\(o\.planned_cent - coalesce\(a\.actual_cent, 0\), 0\).*earmarked_cent/s);
+assert.match(stateSql, /greatest\(coalesce\(a\.actual_cent, 0\) - o\.planned_cent, 0\).*overrun_cent/s);
+assert.doesNotMatch(stateSql, /t\.status = 'booked'/);
+assert.doesNotMatch(stateSql, /insert into public\.plan_occurrences/);
+console.log("Plan state SQL contracts passed.");
