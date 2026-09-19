@@ -300,6 +300,9 @@ function mockSupabase() {
     const page = await browser.newPage();
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(`console: ${message.text()}`);
+    });
     const base =
       process.env.TEST_BASE_URL || `http://127.0.0.1:${server.address().port}`;
     await page.route("**/*", (route) => {
@@ -349,7 +352,16 @@ function mockSupabase() {
     await active("transactions");
     await rows(2);
     await navigate("plans");
-    await page.waitForFunction(() => document.querySelectorAll("#workspace-occurrences .occurrence-row").length === 3);
+    await page.waitForFunction(() => {
+      const rows = document.querySelectorAll("#workspace-occurrences .occurrence-row").length;
+      const message = document.querySelector("#plans-message")?.textContent || "";
+      return rows === 3 || message.includes("Could not load plans");
+    });
+    assert.equal(
+      await page.locator("#workspace-occurrences .occurrence-row").count(),
+      3,
+      `Plan workspace did not render three occurrences. Browser errors: ${errors.join(" | ") || "none"}`,
+    );
     assert.match(await page.locator("#plan-month").textContent(), /September 2026/);
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Earmarked/);
     assert.match(await page.locator("#workspace-occurrences").textContent(), /Example shop/);
