@@ -433,8 +433,7 @@ function mockSupabase() {
       '"Umsätze Girokonto";"Zeitraum: 01.01.2026 - 31.03.2026";',
       '"Buchungstag";"Wertstellung (Valuta)";"Vorgang";"Buchungstext";"Umsatz in EUR";',
       '"12.03.2026";"12.03.2026";"Lastschrift / Belastung";"EXAMPLE SHOP";"-12,34";',
-    ].join("\r
-");
+    ].join("\\r\\n");
     await page.locator("#csv-file").setInputFiles({
       name: "synthetic.csv",
       mimeType: "text/csv",
