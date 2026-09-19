@@ -447,3 +447,49 @@ console.log("Plan occurrence and group financial read-model tests passed.");
   assert.equal(result.level().unmatched_transactions.length, 1);
   assert.deepEqual(result.level("g").unmatched_transactions, []);
 }
+
+
+{
+  const allocatedButUnattachable = {
+    id: "allocated-no-occurrence",
+    status: "booked",
+    amount_cent: -1500,
+    transaction_date: "2026-09-02",
+    description: "Boundary allocation",
+  };
+  const result = buildMonthFinancialReadModel({
+    month: "2026-09",
+    plans: [plan("later", "Later plan")],
+    occurrences: [occurrence("later", "2026-09-10", 1500)],
+    transactions: [allocatedButUnattachable],
+    allocations: [{
+      id: "orphan-allocation",
+      plan_id: "later",
+      transaction_id: allocatedButUnattachable.id,
+      amount_cent: 1500,
+      source: "manual",
+      transaction: allocatedButUnattachable,
+    }],
+  });
+  assert.equal(result.occurrences[0].matched_transactions.length, 0);
+  assert.deepEqual(result.unmatched_transactions.map((row) => row.id), ["allocated-no-occurrence"]);
+}
+
+{
+  const undated = {
+    id: "no-canonical-date",
+    status: "booked",
+    amount_cent: -900,
+    transaction_date: null,
+    booking_date: null,
+    value_date: null,
+  };
+  const result = buildMonthFinancialReadModel({
+    month: "2026-09",
+    plans: [],
+    occurrences: [],
+    allocations: [],
+    transactions: [undated],
+  });
+  assert.deepEqual(result.unmatched_transactions, []);
+}
