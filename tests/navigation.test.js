@@ -119,7 +119,7 @@ function mockSupabase() {
                   : table === "plan_groups"
                     ? (state.groups || [])
                     : table === "plans"
-                      ? [...new Map(state.plans.map((p) => [p.id, p])).values()].filter((p) => !ids || ids.includes(p.id))
+                      ? [...new Map(state.plans.map((p) => [p.id, p])).values()].map((p) => ({ ...p, id: p.plan_id || p.id })).filter((p) => !ids || ids.includes(p.id))
                       : table === "plan_allocations"
                         ? state.allocations.filter((a) => !ids || ids.includes(a[inField || "plan_id"]))
                         : state.accounts;
