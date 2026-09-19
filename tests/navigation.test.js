@@ -173,6 +173,17 @@ function mockSupabase() {
       if (name === "allocate_transaction_to_plan") {
         state.calls.push(name);
         state.allocationRpc = payload;
+        const transaction = state.rows.find((row) => row.id === payload.p_transaction_id);
+        state.allocations = state.allocations.filter((row) => row.transaction_id !== payload.p_transaction_id || row.plan_id !== payload.p_plan_id);
+        state.allocations.push({
+          id: "allocation-" + (state.allocations.length + 1),
+          plan_id: payload.p_plan_id,
+          transaction_id: payload.p_transaction_id,
+          amount_cent: payload.p_amount_cent,
+          source: payload.p_source || "manual",
+          rule_id: payload.p_rule_id || null,
+          transactions: transaction ? structuredClone(transaction) : null,
+        });
         return { data: { id: "allocation-1", ...payload }, error: null };
       }
       if (name === "plan_occurrences_for_month") {
