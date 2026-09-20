@@ -533,9 +533,9 @@ function createPlanFromAssignment() {
     if (planCreationContext?.transaction !== transaction) return;
     openPlanEditor();
     elements.planName.value = transaction.partner || transaction.description || "";
-  elements.planAmount.value = (Math.abs(Number(transaction.amount_cent)) / 100).toFixed(2);
-  elements.planDirection.value = Number(transaction.amount_cent) < 0 ? "expense" : "income";
-  fillGroupSelect(elements.planGroup, activePlanGroupId || "");
+    elements.planAmount.value = (Math.abs(Number(transaction.amount_cent)) / 100).toFixed(2);
+    setPlanDirection(Number(transaction.amount_cent) < 0 ? "expense" : "income");
+    fillGroupSelect(elements.planGroup, activePlanGroupId || "");
     elements.planStart.value = transactionPlanDate(transaction) || `${navigation.month}-01`;
   }, 0);
 }
