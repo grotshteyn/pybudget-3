@@ -408,7 +408,7 @@ function mockSupabase() {
     await page.reload();
     await rows(2);
     await active("accounts");
-    await navigate("overview");
+    await navigate("plans");
     await page
       .getByRole("link", { name: "Review transactions", exact: true })
       .click();
@@ -510,7 +510,7 @@ function mockSupabase() {
     assert.equal(await page.evaluate(() => fixture.groups.some((group) => group.name === "Household child" && group.parent_group_id === "g1")), true);
     await page.locator("#next-plan-month").click();
     assert.match(await page.locator("#plan-month").textContent(), /October 2026/);
-    await navigate("overview");
+    await navigate("plans");
     assert.match(
       await page.locator("#overview-view").textContent(),
       /Monthly budget/,
@@ -655,7 +655,7 @@ function mockSupabase() {
     await page.evaluate(() => {
       fixture.rows = [];
     });
-    await navigate("overview");
+    await navigate("plans");
     await navigate("accounts");
     await rows(0);
     assert.match(
@@ -763,14 +763,14 @@ function mockSupabase() {
     await page.fill("#password", "synthetic-password");
     await page.locator("#submit-button").click();
     await active("accounts");
-    await navigate("overview");
+    await navigate("plans");
     await navigate("reports");
     await page.goBack();
-    await active("overview");
+    await active("plans");
     await page.goForward();
     await active("reports");
     await page.goto(`${base}/#budget`);
-    await active("overview");
+    await active("plans");
     await page.goto(`${base}/#setup`);
     await active("accounts");
     await navigate("reports");
@@ -779,7 +779,7 @@ function mockSupabase() {
 
     for (const width of [320, 375, 768, 1180]) {
       await page.setViewportSize({ width, height: 800 });
-      for (const view of ["overview", "plans", "reports", "accounts"]) {
+      for (const view of ["plans", "reports", "accounts"]) {
         const link = page.locator(`[data-view="${view}"]`);
         await link.focus();
         await page.keyboard.press("Enter");
@@ -819,7 +819,7 @@ function mockSupabase() {
       await page.evaluate(() => {
         fixture.delay = 0;
       });
-      await navigate("overview");
+      await navigate("plans");
       await page.screenshot({
         path: process.env.TEST_SCREENSHOT,
         fullPage: true,
