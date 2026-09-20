@@ -161,7 +161,7 @@
           <section id="plans-view" class="card feature-view" aria-labelledby="plans-title" hidden="">
             <div class="section-heading">
               <h2 id="plans-title" tabindex="-1">Plans</h2>
-              <div class="assignment-actions"><button id="manage-groups" type="button" class="compact secondary">Groups</button><button id="add-plan" type="button" class="compact primary" aria-label="Add plan">+</button></div>
+              <div class="assignment-actions"><button id="manage-groups" type="button" class="compact secondary">Manage groups</button></div>
             </div>
             <dialog id="group-dialog" class="import-dialog" aria-labelledby="group-dialog-title">
               <div class="section-heading"><h2 id="group-dialog-title">Plan groups</h2><button id="close-groups" class="compact secondary" type="button">Close</button></div>
@@ -182,20 +182,37 @@
               </div>
               <form id="plan-form">
                 <input id="plan-id" type="hidden" />
-                <label for="plan-name">Name</label>
-                <input id="plan-name" maxlength="120" required />
-                <label for="plan-amount">Amount (€)</label>
-                <input id="plan-amount" type="number" min="0.01" step="0.01" required />
-                <label for="plan-direction">Direction</label>
-                <select id="plan-direction"><option value="expense">Expense</option><option value="income">Income</option></select>
-                <label for="plan-group">Group</label>
-                <select id="plan-group"><option value="">Root</option></select>
-                <label for="plan-schedule">Schedule</label>
-                <select id="plan-schedule"><option value="one_time">One time</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
-                <label for="plan-start">Start date</label>
-                <input id="plan-start" type="date" required />
-                <label for="plan-end">End date (optional)</label>
-                <input id="plan-end" type="date" />
+                <div id="creation-type" class="creation-type" role="group" aria-label="Create">
+                  <button id="create-type-plan" class="creation-type-button active" type="button" aria-pressed="true">Plan</button>
+                  <button id="create-type-group" class="creation-type-button" type="button" aria-pressed="false">Group</button>
+                </div>
+                <div id="plan-fields">
+                  <div class="compact-form-row">
+                    <div><label for="plan-name">Name</label><input id="plan-name" maxlength="120" required /></div>
+                    <div><label for="plan-amount">Amount (€)</label><input id="plan-amount" type="number" min="0.01" step="0.01" required /></div>
+                  </div>
+                  <div class="compact-form-row">
+                    <div>
+                      <span class="field-label">Direction</span>
+                      <input id="plan-direction" type="hidden" value="expense" />
+                      <div class="direction-toggle" role="group" aria-label="Direction">
+                        <button id="direction-expense" class="direction-option active" type="button" aria-pressed="true">Expense</button>
+                        <button id="direction-income" class="direction-option" type="button" aria-pressed="false">Income</button>
+                      </div>
+                    </div>
+                    <div><label for="plan-group">Group</label><select id="plan-group"><option value="">Root</option></select></div>
+                  </div>
+                  <label for="plan-schedule">Schedule</label>
+                  <select id="plan-schedule"><option value="one_time">One time</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
+                  <div class="compact-form-row">
+                    <div><label for="plan-start">Start date</label><input id="plan-start" type="date" required /></div>
+                    <div><label for="plan-end">End date (optional)</label><input id="plan-end" type="date" /></div>
+                  </div>
+                </div>
+                <div id="creation-group-fields" hidden>
+                  <label for="creation-group-name">Name</label><input id="creation-group-name" maxlength="120" />
+                  <label for="creation-group-parent">Parent group</label><select id="creation-group-parent"><option value="">Root</option></select>
+                </div>
                 <div class="assignment-actions">
                   <button id="save-plan" class="primary" type="submit">Save plan</button>
                   <button id="deactivate-plan" class="secondary" type="button" hidden>Deactivate</button>
