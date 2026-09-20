@@ -411,3 +411,13 @@ body.signed-in td:nth-child(6)::before { content:'Details'; }
 
 .occurrence-actions { display:flex; justify-content:flex-end; margin-top:10px; }
 .occurrence-edit { width:auto; }
+
+/* Issue #47 compact contextual creation */
+.compact-form-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; align-items:end; }
+.compact-form-row label { margin-top:14px; }
+.field-label { display:block; margin:14px 0 7px; font-size:.88rem; font-weight:700; }
+.creation-type,.direction-toggle { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; margin-top:14px; border-radius:10px; background:#ecebe3; }
+.creation-type-button,.direction-option { padding:9px 12px; border:0; border-radius:8px; background:transparent; color:var(--muted); font-weight:750; }
+.creation-type-button.active,.direction-option.active { background:white; color:var(--green); box-shadow:0 1px 5px rgba(0,0,0,.08); }
+.list-add-action { width:100%; margin-top:0; padding:13px 16px; border:1px dashed var(--green); border-radius:12px; background:transparent; color:var(--green); text-align:left; font-weight:750; }
+@media(max-width:560px){ .compact-form-row { grid-template-columns:1fr; gap:0; } }
