@@ -388,7 +388,7 @@ function mockSupabase() {
         (n) =>
           document.querySelectorAll("#transactions-body .transaction-card").length === n &&
           document
-            .querySelector("#transactions-view")
+            .querySelector("#accounts-view")
             .getAttribute("aria-busy") === "false",
         count,
       );
@@ -397,17 +397,17 @@ function mockSupabase() {
       await active(view);
     };
 
-    await page.goto(`${base}/#transactions?month=2026-09`);
-    await active("transactions");
+    await page.goto(`${base}/#accounts?month=2026-09`);
+    await active("accounts");
     await rows(2);
     await page.reload();
     await rows(2);
-    await active("transactions");
+    await active("accounts");
     await navigate("overview");
     await page
       .getByRole("link", { name: "Review transactions", exact: true })
       .click();
-    await active("transactions");
+    await active("accounts");
     await rows(2);
     await navigate("plans");
     await page.waitForFunction(() => {
@@ -514,7 +514,7 @@ function mockSupabase() {
     assert.equal(await page.locator('[data-view="setup"]').count(), 0);
     assert.equal(await page.locator("#budget-view").count(), 0);
     await page.locator("#overview-view [data-open-import]").click();
-    await active("transactions");
+    await active("accounts");
     await page.locator("#import-dialog").waitFor();
     assert.equal(
       await page.evaluate(() => document.activeElement.id),
@@ -555,8 +555,8 @@ function mockSupabase() {
       await page.locator("#accounts-view").getByRole("heading").count(),
       1,
     );
-    await navigate("transactions");
-    await page.locator("#transactions-view [data-open-import]").first().click();
+    await navigate("accounts");
+    await page.locator("#accounts-view [data-open-import]").first().click();
     await page.locator("#import-dialog").waitFor();
     await page.locator("#csv-file").setInputFiles({
       name: "invalid.csv",
@@ -599,7 +599,7 @@ function mockSupabase() {
         .querySelector("#import-result")
         .textContent.includes("Import complete"),
     );
-    await active("transactions");
+    await active("accounts");
     await rows(2);
     assert.equal(await page.locator("#import-dialog").isVisible(), false);
     assert.equal(await page.locator(".new-transaction").count(), 1);
@@ -615,11 +615,11 @@ function mockSupabase() {
       -1234,
     );
 
-    await navigate("transactions");
+    await navigate("accounts");
     await rows(2);
     const before = await page.evaluate(() => fixture.calls.length);
     await page.evaluate(() => fixture.refreshSession());
-    await active("transactions");
+    await active("accounts");
     assert.equal(await page.evaluate(() => fixture.calls.length), before);
     await page.evaluate(() => {
       fixture.logoutError = true;
@@ -645,14 +645,14 @@ function mockSupabase() {
     await page.fill("#email", "test@example.invalid");
     await page.fill("#password", "synthetic-password");
     await page.locator("#submit-button").click();
-    await active("transactions");
+    await active("accounts");
     await rows(2);
 
     await page.evaluate(() => {
       fixture.rows = [];
     });
     await navigate("overview");
-    await navigate("transactions");
+    await navigate("accounts");
     await rows(0);
     assert.match(
       await page.locator("#transactions-message").textContent(),
@@ -690,7 +690,7 @@ function mockSupabase() {
         partner: i === 249 ? "Far away shop" : "Synthetic payment",
       }));
     });
-    await navigate("transactions");
+    await navigate("accounts");
     await rows(50);
     await page.locator("#load-more").click();
     await rows(100);
@@ -705,8 +705,8 @@ function mockSupabase() {
         },
       ];
     });
-    await navigate("transactions");
-    await page.locator("#transactions-view [data-open-import]").first().click();
+    await navigate("accounts");
+    await page.locator("#accounts-view [data-open-import]").first().click();
     await page
       .getByRole("button", { name: "Same transaction", exact: true })
       .waitFor();
@@ -751,14 +751,14 @@ function mockSupabase() {
         { partner: "Late private fixture", status: "booked", amount_cent: 1 },
       ];
     });
-    await navigate("transactions");
+    await navigate("accounts");
     await page.locator("#logout-button").click();
     await page.waitForTimeout(300);
     assert.equal(await page.locator("#transactions-body .transaction-card").count(), 0);
     await page.fill("#email", "test@example.invalid");
     await page.fill("#password", "synthetic-password");
     await page.locator("#submit-button").click();
-    await active("transactions");
+    await active("accounts");
     await navigate("overview");
     await navigate("reports");
     await page.goBack();
@@ -794,9 +794,9 @@ function mockSupabase() {
       }
       assert.equal(await page.locator("#logout-button").isVisible(), true);
       assert.equal(await page.locator("#csv-file").isVisible(), false);
-      await navigate("transactions");
+      await navigate("accounts");
       await page
-        .locator("#transactions-view [data-open-import]")
+        .locator("#accounts-view [data-open-import]")
         .first()
         .click();
       assert.equal(await page.locator("#csv-file").isVisible(), true);
@@ -833,9 +833,9 @@ function mockSupabase() {
       });
     }
     if (process.env.TEST_SCREENSHOT) {
-      await navigate("transactions");
+      await navigate("accounts");
       await page
-        .locator("#transactions-view [data-open-import]")
+        .locator("#accounts-view [data-open-import]")
         .first()
         .click();
       await page.screenshot({
