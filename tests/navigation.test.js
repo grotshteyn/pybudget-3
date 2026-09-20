@@ -779,7 +779,7 @@ function mockSupabase() {
 
     for (const width of [320, 375, 768, 1180]) {
       await page.setViewportSize({ width, height: 800 });
-      for (const view of ["overview", "transactions", "reports", "accounts"]) {
+      for (const view of ["overview", "plans", "reports", "accounts"]) {
         const link = page.locator(`[data-view="${view}"]`);
         await link.focus();
         await page.keyboard.press("Enter");
