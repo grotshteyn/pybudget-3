@@ -87,6 +87,13 @@ const elements = {
   reportMessage: document.querySelector("#report-message"),
   importView: document.querySelector("#accounts-view"),
   transactionsView: document.querySelector("#transactions-view"),
+  transactionDetailDialog: document.querySelector("#transaction-detail-dialog"),
+  transactionDetailTitle: document.querySelector("#transaction-detail-title"),
+  transactionDetailSummary: document.querySelector("#transaction-detail-summary"),
+  transactionDetailFields: document.querySelector("#transaction-detail-fields"),
+  transactionDetailPlanState: document.querySelector("#transaction-detail-plan-state"),
+  transactionDetailAssign: document.querySelector("#transaction-detail-assign"),
+  closeTransactionDetail: document.querySelector("#close-transaction-detail"),
   refreshAccounts: document.querySelector("#refresh-accounts"),
   accountsList: document.querySelector("#accounts-list"),
   accountsMessage: document.querySelector("#accounts-message"),
@@ -137,6 +144,7 @@ let reviewCandidates = [],
   reviewRequest = 0;
 const loadMore = document.querySelector("#load-more");
 let assignmentTransaction = null;
+let detailTransaction = null;
 let planCreationContext = null;
 let planGroups = [];
 let activePlanGroupId = null;
@@ -600,120 +608,82 @@ async function assignCurrentTransaction() {
   }
 }
 
+function transactionIdentity(transaction) {
+  return transaction.partner || transaction.description || "Transaction";
+}
+
+function transactionSecondary(transaction, context = {}) {
+  const parts = [formatDate(transaction)];
+  if (context.planLabel) parts.push(context.planLabel);
+  else if (context.unmatched) parts.push("Unmatched");
+  else if (transaction.account_name && !context.hideAccount) parts.push(transaction.account_name);
+  return parts.filter(Boolean).join(" · ");
+}
+
+function createTransactionCard(transaction, context = {}) {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "transaction-card";
+  if (context.unmatched) card.classList.add("unmatched-transaction");
+  const identity = document.createElement("strong");
+  identity.className = "transaction-card-identity";
+  identity.textContent = transactionIdentity(transaction);
+  const amount = document.createElement("strong");
+  amount.className = `transaction-card-amount ${Number(transaction.amount_cent) >= 0 ? "positive" : "negative"}`;
+  amount.textContent = formatMoney(context.amountCent ?? transaction.amount_cent);
+  const secondary = document.createElement("span");
+  secondary.className = "transaction-card-secondary";
+  secondary.textContent = transactionSecondary(transaction, context);
+  const contextText = document.createElement("span");
+  contextText.className = "transaction-card-context";
+  contextText.textContent = context.contextText || "";
+  card.append(identity, amount, secondary, contextText);
+  card.addEventListener("click", () => openTransactionDetail(transaction, context));
+  return card;
+}
+
+function appendDetailField(term, value) {
+  if (!value) return;
+  const dt = document.createElement("dt"); dt.textContent = term;
+  const dd = document.createElement("dd"); dd.textContent = value;
+  elements.transactionDetailFields.append(dt, dd);
+}
+
+function openTransactionDetail(transaction, context = {}) {
+  detailTransaction = transaction;
+  elements.transactionDetailTitle.textContent = transactionIdentity(transaction);
+  elements.transactionDetailSummary.replaceChildren(createTransactionCard(transaction, { ...context, detail: true }));
+  const nested = elements.transactionDetailSummary.querySelector(".transaction-card");
+  if (nested) { nested.disabled = true; nested.removeAttribute("type"); }
+  elements.transactionDetailFields.replaceChildren();
+  appendDetailField("Date", formatDate(transaction));
+  appendDetailField("Account", transaction.account_name);
+  appendDetailField("Description", transaction.description);
+  appendDetailField("Reference", transaction.bank_reference);
+  elements.transactionDetailPlanState.textContent = context.planLabel || (context.unmatched ? "Not assigned" : "Manage this transaction's Plan assignment.");
+  elements.transactionDetailAssign.textContent = context.planLabel ? "Change plan" : "Add to plan";
+  elements.transactionDetailDialog.showModal();
+}
+
+function assignFromTransactionDetail() {
+  if (!detailTransaction) return;
+  const transaction = detailTransaction;
+  elements.transactionDetailDialog.close();
+  setTimeout(() => openAssignment(transaction), 0);
+}
+
 function renderTransactions() {
   clearMessage(elements.transactionsMessage);
-  const filtered = transactions;
-  const rows = filtered.map((transaction) => {
-    const row = document.createElement("tr");
-    const isNew =
-      recentBatch &&
-      (transaction.imports || []).some(
-        (i) =>
-          i.batch_id === recentBatch &&
-          (i.observed_at === transaction.first_seen_at ||
-            i.observed_at === transaction.booked_at),
-      );
-    if (isNew) {
-      row.classList.add("new-transaction");
-      row.setAttribute("aria-label", "New or updated transaction");
-    }
-
-    const dateCell = makeCell(formatDate(transaction));
-    if (isNew) {
-      const dot = document.createElement("span");
-      dot.className = "new-dot";
-      dot.title = "New or updated in your latest import";
-      dot.setAttribute("aria-label", dot.title);
-      dateCell.append(dot);
-    }
-    row.appendChild(dateCell);
-    row.appendChild(
-      makeCell(transaction.partner || transaction.description || "Unknown"),
-    );
-    row.appendChild(makeCell(transaction.account_name || "Account"));
-    const statusCell = document.createElement("td");
-    const badge = document.createElement("span");
-    badge.className = `status-badge ${transaction.status}`;
-    badge.textContent = transaction.status;
-    statusCell.appendChild(badge);
-    row.appendChild(statusCell);
-    row.appendChild(
-      makeCell(
-        formatMoney(transaction.amount_cent),
-        `amount ${transaction.amount_cent >= 0 ? "positive" : "negative"}`,
-      ),
-    );
-    const cell = document.createElement("td"),
-      details = document.createElement("details"),
-      summary = document.createElement("summary"),
-      info = document.createElement("p");
-    summary.textContent = "Details";
-    info.textContent =
-      "ID: " +
-      transaction.id +
-      " · Reference: " +
-      (transaction.bank_reference || "None") +
-      " · Booking: " +
-      (transaction.booking_date || "None") +
-      " · Value: " +
-      (transaction.value_date || "None") +
-      " · Purchase: " +
-      (transaction.transaction_date || "None") +
-      " · First seen: " +
-      (transaction.first_seen_at || "Unknown") +
-      " · Last seen: " +
-      (transaction.last_seen_at || "Unknown") +
-      " · " +
-      (transaction.description || "");
-    const provenance = document.createElement("p");
-    provenance.textContent =
-      "Imports: " +
-      (transaction.imports || [])
-        .map(
-          (i) =>
-            (i.file_name || "File") + " (" + i.batch_id + ", " + i.status + ")",
-        )
-        .join("; ");
-    const assign = document.createElement("button");
-    assign.type = "button";
-    assign.className = "compact secondary transaction-assign";
-    assign.textContent = "Assign";
-    assign.addEventListener("click", () => openAssignment(transaction));
-    details.append(summary, info, provenance);
-    cell.append(details, assign);
-    row.append(cell);
-    return row;
-  });
-  elements.transactionsBody.replaceChildren(...rows);
-  loadMore.hidden =
-    transactionState !== "ready" || transactions.length >= ledger.count;
+  const cards = transactions.map((transaction) => createTransactionCard(transaction));
+  elements.transactionsBody.replaceChildren(...cards);
+  loadMore.hidden = transactionState !== "ready" || transactions.length >= ledger.count;
   loadMore.disabled = transactionState !== "ready";
-  if (transactionState === "loading")
-    showMessage(
-      elements.transactionsMessage,
-      "Loading transactions…",
-      "loading",
-    );
-  else if (transactionState === "error")
-    showMessage(elements.transactionsMessage, transactionError);
-  else if (!transactions.length)
-    showMessage(
-      elements.transactionsMessage,
-      "No transactions in this month.",
-      "empty",
-    );
-  else if (ledger.review_count)
-    showMessage(
-      elements.transactionsMessage,
-      ledger.review_count +
-        " booked transactions await reconciliation in the import window and are excluded from these totals. Totals remain provisional.",
-      "warning",
-    );
+  if (transactionState === "loading") showMessage(elements.transactionsMessage, "Loading transactions…", "loading");
+  else if (transactionState === "error") showMessage(elements.transactionsMessage, transactionError);
+  else if (!transactions.length) showMessage(elements.transactionsMessage, "No transactions in this month.", "empty");
+  else if (ledger.review_count) showMessage(elements.transactionsMessage, ledger.review_count + " booked transactions await reconciliation in the import window and are excluded from these totals. Totals remain provisional.", "warning");
   reviewImports.hidden = !ledger.review_count || transactionState !== "ready";
-  elements.transactionsView.setAttribute(
-    "aria-busy",
-    String(transactionState === "loading"),
-  );
+  elements.transactionsView.setAttribute("aria-busy", String(transactionState === "loading"));
 }
 
 function fillGroupSelect(select, selected = "", groups = planGroups) {
@@ -954,7 +924,7 @@ function renderPlanWorkspace(model) {
     if(item.matched_transactions.length){
       const matched=document.createElement("details"); matched.className="occurrence-matches";
       const matchedSummary=document.createElement("summary"); matchedSummary.textContent=`Matched transactions (${item.matched_transactions.length})`; matched.append(matchedSummary);
-      item.matched_transactions.forEach((tx)=>{const line=document.createElement("div"); line.className="assignment-actions matched-transaction"; const label=document.createElement("span"); label.textContent=`${tx.partner||tx.description||"Transaction"} · ${formatMoney(tx.allocated_amount_cent)}`; line.append(label); matched.append(line);});
+      item.matched_transactions.forEach((tx)=>{ matched.append(createTransactionCard(tx, { amountCent: tx.allocated_amount_cent, planLabel: item.name, contextText: "Matched" })); });
       card.append(matched);
     }
     elements.workspaceOccurrences.append(card);
@@ -963,12 +933,7 @@ function renderPlanWorkspace(model) {
   elements.workspaceUnmatchedSection.hidden = activePlanGroupId !== null;
   if (activePlanGroupId === null) {
     level.unmatched_transactions.forEach((tx) => {
-      const row=document.createElement("button"); row.type="button"; row.className="account-card plan-row unmatched-transaction";
-      const identity=document.createElement("strong"); identity.textContent=tx.partner||tx.description||"Transaction";
-      const state=document.createElement("span"); state.textContent=`Unmatched · ${formatMoney(Math.abs(tx.amount_cent))}`;
-      const cue=document.createElement("span"); cue.className="unmatched-marker"; cue.setAttribute("aria-hidden","true"); cue.textContent="!";
-      identity.prepend(cue, document.createTextNode(" "));
-      row.append(identity,state); row.addEventListener("click",()=>openAssignment(tx)); elements.workspaceUnmatched.append(row);
+      elements.workspaceUnmatched.append(createTransactionCard(tx, { unmatched: true, contextText: "Needs a plan" }));
     });
     if(!level.unmatched_transactions.length){const empty=document.createElement("p"); empty.className="muted"; empty.textContent="No unmatched transactions this month."; elements.workspaceUnmatched.append(empty);}
   }
@@ -1530,6 +1495,9 @@ elements.assignPlan.addEventListener("change", () => {
   fillGroupSelect(elements.assignGroup, option?.dataset.groupId || "");
 });
 elements.assignNewPlan.addEventListener("click", createPlanFromAssignment);
+elements.transactionDetailAssign.addEventListener("click", assignFromTransactionDetail);
+elements.closeTransactionDetail.addEventListener("click", () => elements.transactionDetailDialog.close());
+elements.transactionDetailDialog.addEventListener("close", () => { detailTransaction = null; });
 elements.closeAssign.addEventListener("click", () => elements.assignDialog.close());
 elements.assignDialog.addEventListener("close", () => {
   if (!planCreationContext) assignmentTransaction = null;
