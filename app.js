@@ -86,7 +86,7 @@ const elements = {
   reportVariant: document.querySelector("#report-variant"),
   reportMessage: document.querySelector("#report-message"),
   importView: document.querySelector("#accounts-view"),
-  transactionsView: document.querySelector("#transactions-view"),
+  transactionsView: document.querySelector("#accounts-view"),
   transactionDetailDialog: document.querySelector("#transaction-detail-dialog"),
   transactionDetailTitle: document.querySelector("#transaction-detail-title"),
   transactionDetailSummary: document.querySelector("#transaction-detail-summary"),
@@ -156,7 +156,6 @@ let transactionsRequest = 0;
 let fileRequest = 0;
 const views = {
   overview: "overview-view",
-  transactions: "transactions-view",
   plans: "plans-view",
   reports: "reports-view",
   accounts: "accounts-view",
@@ -195,7 +194,8 @@ function readNavigation() {
   const migrateRoute = (value) =>
     value
       .replace(/^budget(?=\?|$)/, "overview")
-      .replace(/^setup(?=\?|$)/, "accounts");
+      .replace(/^setup(?=\?|$)/, "accounts")
+      .replace(/^transactions(?=\?|$)/, "accounts");
   let route = migrateRoute(window.location.hash.slice(1));
   if (!Object.hasOwn(views, route.split("?")[0])) {
     try {
@@ -975,12 +975,8 @@ function showFeature({ focus = false, load = true } = {}) {
   document.title = `${navigation.view[0].toUpperCase()}${navigation.view.slice(1)} · PyBudget`;
   if (focus)
     document.querySelector(`#${views[navigation.view]} h2[tabindex]`).focus();
-  if (load && navigation.view === "accounts") loadAccounts();
+  if (load && navigation.view === "accounts") { loadAccounts(); loadTransactions(); }
   if (load && navigation.view === "plans") loadPlans();
-  if (load && navigation.view === "transactions") {
-    loadAccounts();
-    loadTransactions();
-  }
 }
 
 function renderSession(session) {
@@ -1354,7 +1350,7 @@ async function importTransactions() {
           : ""),
       reviewCount || data.rejected ? "warning" : "success",
     );
-    navigation.view = "transactions";
+    navigation.view = "accounts";
     navigation.month = currentMonth();
     navigation.direction = "all";
     ledgerOffset = 0;
@@ -1388,7 +1384,7 @@ function resetImportWindow() {
 }
 function openImportWindow() {
   if (!currentUser || importBusy) return;
-  navigation.view = "transactions";
+  navigation.view = "accounts";
   showFeature({ load: false });
   loadAccounts();
   loadTransactions();
@@ -1408,7 +1404,7 @@ importDialog.addEventListener("cancel", (event) => {
 });
 importDialog.addEventListener("close", () => {
   resetImportWindow();
-  if (currentUser && navigation.view === "transactions")
+  if (currentUser && navigation.view === "accounts")
     document.querySelector("#transactions-title").focus();
 });
 
