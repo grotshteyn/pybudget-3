@@ -511,15 +511,13 @@ function mockSupabase() {
     await page.locator("#next-plan-month").click();
     assert.match(await page.locator("#plan-month").textContent(), /October 2026/);
     await navigate("plans");
-    assert.match(
-      await page.locator("#overview-view").textContent(),
-      /Monthly budget/,
-    );
+    assert.equal(await page.locator('[data-view="overview"]').count(), 0);
+    assert.equal(await page.locator("#overview-view").count(), 0);
     assert.equal(await page.locator('[data-view="budget"]').count(), 0);
     assert.equal(await page.locator('[data-view="setup"]').count(), 0);
     assert.equal(await page.locator("#budget-view").count(), 0);
-    await page.locator("#overview-view [data-open-import]").click();
-    await active("accounts");
+    await navigate("accounts");
+    await page.locator("#accounts-view [data-open-import]").first().click();
     await page.locator("#import-dialog").waitFor();
     assert.equal(
       await page.evaluate(() => document.activeElement.id),
