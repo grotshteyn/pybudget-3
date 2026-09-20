@@ -522,18 +522,8 @@ function mockSupabase() {
     );
     await page.keyboard.press("Escape");
     assert.equal(await page.locator("#import-dialog").isVisible(), false);
-    await navigate("reports");
-    await page.selectOption("#report-variant", "settlement");
-    await page.reload();
-    await active("reports");
-    assert.equal(
-      await page.locator("#report-variant").inputValue(),
-      "settlement",
-    );
-    assert.match(
-      await page.locator("#report-message").textContent(),
-      /Settlement is not available yet/,
-    );
+    assert.equal(await page.locator('[data-view="reports"]').count(), 0);
+    assert.equal(await page.locator("#reports-view").count(), 0);
     await navigate("accounts");
     await page.locator("#accounts-list input").fill("Renamed example account");
     await page.getByRole("button", { name: "Save name" }).click();
@@ -759,22 +749,22 @@ function mockSupabase() {
     await page.locator("#submit-button").click();
     await active("accounts");
     await navigate("plans");
-    await navigate("reports");
+    await navigate("accounts");
     await page.goBack();
     await active("plans");
     await page.goForward();
-    await active("reports");
+    await active("accounts");
     await page.goto(`${base}/#budget`);
     await active("plans");
     await page.goto(`${base}/#setup`);
     await active("accounts");
-    await navigate("reports");
+    await navigate("accounts");
     await page.goto(`${base}/#unknown?status=invalid`);
-    await active("reports");
+    await active("accounts");
 
     for (const width of [320, 375, 768, 1180]) {
       await page.setViewportSize({ width, height: 800 });
-      for (const view of ["plans", "reports", "accounts"]) {
+      for (const view of ["plans", "accounts"]) {
         const link = page.locator(`[data-view="${view}"]`);
         await link.focus();
         await page.keyboard.press("Enter");
