@@ -652,9 +652,10 @@ function appendDetailField(term, value) {
 function openTransactionDetail(transaction, context = {}) {
   detailTransaction = transaction;
   elements.transactionDetailTitle.textContent = transactionIdentity(transaction);
-  elements.transactionDetailSummary.replaceChildren(createTransactionCard(transaction, { ...context, detail: true }));
-  const nested = elements.transactionDetailSummary.querySelector(".transaction-card");
-  if (nested) { nested.disabled = true; nested.removeAttribute("type"); }
+  const summary = createTransactionCard(transaction, { ...context, detail: true });
+  summary.disabled = true;
+  summary.setAttribute("aria-hidden", "true");
+  elements.transactionDetailSummary.replaceChildren(summary);
   elements.transactionDetailFields.replaceChildren();
   appendDetailField("Date", formatDate(transaction));
   appendDetailField("Account", transaction.account_name);
