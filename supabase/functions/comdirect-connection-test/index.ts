@@ -142,6 +142,12 @@ async function requirePyBudgetUser(req: Request) {
   return assertDiagnosticUserAllowed(user.id as string);
 }
 
+function assertLiveDiagnosticEnabled() {
+  if (Deno.env.get("COMDIRECT_DIAGNOSTIC_LIVE_ENABLED") !== "true") {
+    throw new Error("diagnostic_live_disabled");
+  }
+}
+
 async function runAccountDiagnostic(fetcher: typeof fetch, credentials: Credentials, wait: (ms: number) => Promise<void>) {
   const clientSessionId = randomId(16);
   let first: TokenSet | null = null;
@@ -186,7 +192,7 @@ async function runAccountDiagnostic(fetcher: typeof fetch, credentials: Credenti
   }
 }
 
-export { diagnosticAllowedUserIds, assertDiagnosticUserAllowed, requirePyBudgetUser, runAccountDiagnostic };
+export { diagnosticAllowedUserIds, assertDiagnosticUserAllowed, requirePyBudgetUser, assertLiveDiagnosticEnabled, runAccountDiagnostic };
 
 Deno.serve(async (req) => {
   let origin: string | null = null;
@@ -205,6 +211,7 @@ Deno.serve(async (req) => {
     let body: Record<string, unknown>;
     try { body = await req.json(); } catch { throw new Error("invalid_json"); }
     if (body?.action !== "account-diagnostic") throw new Error("unsupported_action");
+    assertLiveDiagnosticEnabled();
     const credentials = requireCredentials(body);
     const result = await runAccountDiagnostic(fetch, credentials, (ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     return json(result, 200, origin);
