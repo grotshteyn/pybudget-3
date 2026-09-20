@@ -10,6 +10,34 @@ function monthKey(date) {
   return String(date || "").slice(0, 7);
 }
 
+function isoDate(value) {
+  return String(value || "").slice(0, 10);
+}
+
+function addDays(date, days) {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function endOfMonth(date) {
+  const value = new Date(`${date}T00:00:00Z`);
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+}
+
+function occurrenceEndDate(plan, occurrenceDate) {
+  let end;
+  switch (plan.schedule_type) {
+    case "weekly": end = addDays(occurrenceDate, 6); break;
+    case "monthly": end = endOfMonth(occurrenceDate); break;
+    case "one_time":
+    case "yearly": end = occurrenceDate; break;
+    default: end = occurrenceDate;
+  }
+  const planEnd = isoDate(plan.end_date);
+  return planEnd && planEnd < end ? planEnd : end;
+}
+
 function transactionForAllocation(allocation) {
   const related = allocation.transaction ?? allocation.transactions ?? null;
   return Array.isArray(related) ? related[0] ?? null : related;
@@ -73,6 +101,7 @@ export function buildMonthFinancialReadModel({
   allocations,
   groups = [],
   transactions = [],
+  asOfDate = new Date().toISOString().slice(0, 10),
 }) {
   const selectedMonth = monthKey(month);
   if (!selectedMonth) throw new Error("A selected month is required.");
@@ -90,6 +119,7 @@ export function buildMonthFinancialReadModel({
         group_id: plan.group_id ?? null,
         name: plan.name,
         occurrence_date: occurrence.occurrence_date,
+        occurrence_end_date: occurrenceEndDate(plan, occurrence.occurrence_date),
         direction: occurrence.direction ?? plan.direction,
         planned_cent: planned,
         actual_cent: 0,
@@ -97,6 +127,7 @@ export function buildMonthFinancialReadModel({
         overrun_cent: 0,
         receivable_cent: 0,
         windfall_cent: 0,
+        is_closed: false,
         materialized: false,
         allocations: [],
         matched_transactions: [],
@@ -146,12 +177,14 @@ export function buildMonthFinancialReadModel({
     });
   }
 
+  const today = isoDate(asOfDate);
   for (const occurrence of occurrenceRows) {
+    occurrence.is_closed = Boolean(today && today > occurrence.occurrence_end_date);
     if (occurrence.direction === "expense") {
-      occurrence.earmarked_cent = Math.max(occurrence.planned_cent - occurrence.actual_cent, 0);
+      occurrence.earmarked_cent = occurrence.is_closed ? 0 : Math.max(occurrence.planned_cent - occurrence.actual_cent, 0);
       occurrence.overrun_cent = Math.max(occurrence.actual_cent - occurrence.planned_cent, 0);
     } else if (occurrence.direction === "income") {
-      occurrence.receivable_cent = Math.max(occurrence.planned_cent - occurrence.actual_cent, 0);
+      occurrence.receivable_cent = occurrence.is_closed ? 0 : Math.max(occurrence.planned_cent - occurrence.actual_cent, 0);
       occurrence.windfall_cent = Math.max(occurrence.actual_cent - occurrence.planned_cent, 0);
     } else {
       throw new Error(`Unknown plan direction ${occurrence.direction}.`);
@@ -286,7 +319,7 @@ export async function loadMonthFinancialReadModel(client, month) {
 
   const [occurrenceResult, planResult, groupResult, allocationResult, transactionResult] = await Promise.all([
     client.rpc("plan_occurrences_for_month", { p_month: `${selectedMonth}-01` }),
-    client.from("plans").select("id,name,direction,group_id"),
+    client.from("plans").select("id,name,direction,group_id,schedule_type,start_date,end_date"),
     client.from("plan_groups").select("id,name,parent_group_id,sort_order").order("sort_order").order("id"),
     client
       .from("plan_allocations")
