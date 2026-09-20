@@ -116,14 +116,6 @@
               <a class="menu-button" data-view="overview" href="#overview"
                 >Overview</a
               >
-              <a
-                class="menu-button"
-                data-view="transactions"
-                href="#transactions"
-                >Transactions</a
-              >
-
-              <a class="menu-button" data-view="plans" href="#plans">Plans</a>
               <a class="menu-button" data-view="reports" href="#reports"
                 >Reports</a
               >
@@ -294,44 +286,69 @@
               hidden=""
             ></p>
             <div id="accounts-list" class="accounts-list"></div>
-          </section>
 
-            <dialog id="transaction-detail-dialog" class="import-dialog transaction-detail-dialog" aria-labelledby="transaction-detail-title">
+            <section class="account-transactions" aria-labelledby="transactions-title">
+            <dialog
+              id="import-dialog"
+              class="import-dialog"
+              aria-labelledby="import-title"
+            >
               <div class="section-heading">
-                <h2 id="transaction-detail-title">Transaction</h2>
-                <button id="close-transaction-detail" class="compact secondary" type="button">Close</button>
+                <h2 id="import-title">Import transactions</h2>
+                <button
+                  id="close-import"
+                  class="compact secondary"
+                  type="button"
+                  aria-label="Close import window"
+                >
+                  Close
+                </button>
               </div>
-              <div id="transaction-detail-summary" class="transaction-detail-summary"></div>
-              <dl id="transaction-detail-fields" class="transaction-detail-fields"></dl>
-              <div class="transaction-detail-plan">
-                <span class="field-label">Plan</span>
-                <p id="transaction-detail-plan-state" class="muted">Not assigned</p>
-                <button id="transaction-detail-assign" class="secondary" type="button">Add to plan</button>
-              </div>
-            </dialog>
-
-            <dialog id="assign-dialog" class="import-dialog" aria-labelledby="assign-title">
-              <div class="section-heading">
-                <h2 id="assign-title">Assign transaction</h2>
-                <button id="close-assign" class="compact secondary" type="button">Close</button>
-              </div>
-              <p class="muted">Connect this transaction to an existing Plan, or create a new Plan from it.</p>
-              <label for="assign-plan">Plan</label>
-              <select id="assign-plan"></select>
-              <label for="assign-group">Group</label>
-              <select id="assign-group"></select>
-              <p class="muted">Changing the Group moves the selected Plan when you save.</p>
-              <button id="assign-new-plan" class="secondary" type="button">Create new Plan</button>
-              <label class="checkbox-row"><input id="assign-include" type="checkbox" checked /> Include this transaction in the Plan</label>
-              <label class="checkbox-row"><input id="assign-rule" type="checkbox" /> Create a Rule for similar transactions</label>
-              <div class="assignment-actions">
-                <button id="assign-once" class="primary" type="button">Save assignment</button>
-              </div>
-              <p id="assign-message" class="notice" role="status" aria-live="polite" hidden=""></p>
-            </dialog>
-          <section
-            id="transactions-view"
-            class="card transactions-card feature-view"
+              <section class="">
+                <p class="muted">
+                  Choose a Comdirect CSV to add transactions to your accounts.
+                </p>
+                <label class="file-picker" for="csv-file">
+                  <span>Choose Comdirect CSV</span>
+                  <input id="csv-file" type="file" accept=".csv,text/csv" />
+                </label>
+                <div id="import-preview" class="import-preview" hidden="">
+                  <div>
+                    <span>Accounts</span
+                    ><strong id="preview-accounts">0</strong>
+                  </div>
+                  <div>
+                    <span>Transactions</span
+                    ><strong id="preview-transactions">0</strong>
+                  </div>
+                  <div>
+                    <span>Pending</span><strong id="preview-pending">0</strong>
+                  </div>
+                  <div>
+                    <span>Rejected rows</span
+                    ><strong id="preview-errors">0</strong>
+                  </div>
+                </div>
+                <button
+                  id="import-button"
+                  class="primary"
+                  type="button"
+                  disabled=""
+                >
+                  Import transactions
+                </button>
+                <p
+                  id="import-message"
+                  class="notice"
+                  role="status"
+                  aria-live="polite"
+                  hidden=""
+                ></p>
+              </section>
+              <section class="" aria-labelledby="reconciliation-title">
+                <div class="section-heading">
+                  <div>
+       e-view"
             aria-labelledby="transactions-title"
             hidden=""
           >
