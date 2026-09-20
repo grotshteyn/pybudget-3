@@ -83,8 +83,6 @@ const elements = {
   planFormMessage: document.querySelector("#plan-form-message"),
   deactivatePlan: document.querySelector("#deactivate-plan"),
   closePlan: document.querySelector("#close-plan"),
-  reportVariant: document.querySelector("#report-variant"),
-  reportMessage: document.querySelector("#report-message"),
   importView: document.querySelector("#accounts-view"),
   transactionsView: document.querySelector("#accounts-view"),
   transactionDetailDialog: document.querySelector("#transaction-detail-dialog"),
@@ -156,7 +154,6 @@ let transactionsRequest = 0;
 let fileRequest = 0;
 const views = {
   plans: "plans-view",
-  reports: "reports-view",
   accounts: "accounts-view",
 };
 const navigationKey = "pybudget.navigation.v1";
@@ -216,7 +213,6 @@ function readNavigation() {
       : currentMonth(),
     direction: "all",
     search: "",
-    report: params.get("report") === "settlement" ? "settlement" : "expenses",
   };
 }
 let navigation = readNavigation();
@@ -224,7 +220,6 @@ let navigation = readNavigation();
 function navigationHash(view = navigation.view) {
   const params = new URLSearchParams();
   params.set("month", navigation.month);
-  if (navigation.report !== "expenses") params.set("report", navigation.report);
   return `#${view}${params.size ? `?${params}` : ""}`;
 }
 
@@ -959,8 +954,6 @@ function renderPlanWorkspace(model) {
 function showFeature({ focus = false, load = true } = {}) {
   elements.transactionMonth.textContent = formatMonth(navigation.month);
   elements.planMonth.textContent = formatMonth(navigation.month);
-  elements.reportVariant.value = navigation.report;
-  elements.reportMessage.textContent = `${navigation.report === "settlement" ? "Settlement" : "Expense summary"} is not available yet. This report is planned.`;
   Object.entries(views).forEach(([view, id]) => {
     document.getElementById(id).hidden = view !== navigation.view;
   });
@@ -1447,10 +1440,6 @@ elements.nextMonth.addEventListener("click", () => changeMonth(1));
 loadMore.addEventListener("click", () => {
   ledgerOffset = transactions.length;
   loadTransactions();
-});
-elements.reportVariant.addEventListener("change", () => {
-  navigation.report = elements.reportVariant.value;
-  showFeature({ load: false });
 });
 elements.refreshAccounts.addEventListener("click", loadAccounts);
 elements.csvFile.addEventListener("change", handleFileSelection);
