@@ -66,6 +66,16 @@ const elements = {
   planName: document.querySelector("#plan-name"),
   planAmount: document.querySelector("#plan-amount"),
   planDirection: document.querySelector("#plan-direction"),
+  createTypePlan: document.querySelector("#create-type-plan"),
+  createTypeGroup: document.querySelector("#create-type-group"),
+  creationType: document.querySelector("#creation-type"),
+  planFields: document.querySelector("#plan-fields"),
+  creationGroupFields: document.querySelector("#creation-group-fields"),
+  creationGroupName: document.querySelector("#creation-group-name"),
+  creationGroupParent: document.querySelector("#creation-group-parent"),
+  directionExpense: document.querySelector("#direction-expense"),
+  directionIncome: document.querySelector("#direction-income"),
+  savePlan: document.querySelector("#save-plan"),
   planGroup: document.querySelector("#plan-group"),
   planSchedule: document.querySelector("#plan-schedule"),
   planStart: document.querySelector("#plan-start"),
@@ -746,23 +756,74 @@ async function removeGroup() {
   catch(error) { showMessage(elements.groupFormMessage,error.message||"Could not delete group."); }
 }
 
-function openPlanEditor(plan = null) {
+function setPlanDirection(direction) {
+  elements.planDirection.value = direction;
+  const expense = direction === "expense";
+  elements.directionExpense.classList.toggle("active", expense);
+  elements.directionIncome.classList.toggle("active", !expense);
+  elements.directionExpense.setAttribute("aria-pressed", String(expense));
+  elements.directionIncome.setAttribute("aria-pressed", String(!expense));
+}
+function setCreationType(type) {
+  const group = type === "group";
+  elements.planFields.hidden = group;
+  elements.creationGroupFields.hidden = !group;
+  elements.createTypePlan.classList.toggle("active", !group);
+  elements.createTypeGroup.classList.toggle("active", group);
+  elements.createTypePlan.setAttribute("aria-pressed", String(!group));
+  elements.createTypeGroup.setAttribute("aria-pressed", String(group));
+  elements.planName.required = !group;
+  elements.planAmount.required = !group;
+  elements.planStart.required = !group;
+  elements.creationGroupName.required = group;
+  elements.savePlan.textContent = group ? "Save group" : "Save plan";
+  elements.planDialogTitle.textContent = group ? "Add group" : "Add plan";
+}
+function openPlanEditor(plan = null, options = {}) {
   elements.planForm.reset();
   clearMessage(elements.planFormMessage);
+  const editing = Boolean(plan);
+  elements.creationType.hidden = editing;
   elements.planId.value = plan?.id || plan?.plan_id || "";
+  setCreationType("plan");
   elements.planDialogTitle.textContent = plan ? "Edit plan" : "Add plan";
   elements.planName.value = plan?.name || "";
   elements.planAmount.value = plan ? (Number(plan.amount_cent) / 100).toFixed(2) : "";
-  elements.planDirection.value = plan?.direction || "expense";
-  fillGroupSelect(elements.planGroup, plan?.group_id || "");
+  setPlanDirection(plan?.direction || "expense");
+  fillGroupSelect(elements.planGroup, plan?.group_id ?? options.groupId ?? activePlanGroupId ?? "");
   elements.planSchedule.value = plan?.schedule_type || "monthly";
   elements.planStart.value = plan?.start_date || `${navigation.month}-01`;
   elements.planEnd.value = plan?.end_date || "";
   elements.deactivatePlan.hidden = !plan;
   elements.planDialog.showModal();
 }
+function openGroupCreator(parentGroupId = activePlanGroupId) {
+  elements.planForm.reset();
+  clearMessage(elements.planFormMessage);
+  elements.planId.value = "";
+  elements.creationType.hidden = false;
+  setCreationType("group");
+  elements.creationGroupName.value = "";
+  fillGroupSelect(elements.creationGroupParent, parentGroupId || "");
+  elements.deactivatePlan.hidden = true;
+  elements.planDialog.showModal();
+}
 async function savePlan(event) {
   event.preventDefault();
+  if (!elements.creationGroupFields.hidden && !elements.planId.value) {
+    try {
+      await createPlanGroup(client, currentUser.id, {
+        name: elements.creationGroupName.value.trim(),
+        parent_group_id: elements.creationGroupParent.value || null,
+        sort_order: 0,
+      });
+      elements.planDialog.close();
+      await loadPlans();
+    } catch (error) {
+      showMessage(elements.planFormMessage, error.message || "Could not save group.");
+    }
+    return;
+  }
   const amountCent = Math.round(Number(elements.planAmount.value) * 100);
   if (!elements.planName.value.trim() || !Number.isInteger(amountCent) || amountCent <= 0)
     return showMessage(elements.planFormMessage, "Enter a name and a positive amount.");
@@ -877,6 +938,7 @@ function renderPlanWorkspace(model) {
     state.textContent=hasExpense&&hasIncome?`${expenseState} · ${incomeState}`:hasIncome?incomeState:expenseState;
     row.append(name,state); row.addEventListener("click",()=>{activePlanGroupId=group.id;renderPlanWorkspace(model);}); elements.workspaceGroups.append(row);
   });
+  const addGroup=document.createElement("button"); addGroup.type="button"; addGroup.className="list-add-action"; addGroup.textContent="+ Add group"; addGroup.addEventListener("click",()=>openGroupCreator(activePlanGroupId)); elements.workspaceGroups.append(addGroup);
   level.occurrences.forEach((item)=>{
     const card=document.createElement("article"); card.className=`account-card plan-row occurrence-row ${item.materialized?"materialized":"planned"}`;
     const header=document.createElement("div"); header.className="occurrence-header";
@@ -897,6 +959,7 @@ function renderPlanWorkspace(model) {
     }
     elements.workspaceOccurrences.append(card);
   });
+  const addPlan=document.createElement("button"); addPlan.type="button"; addPlan.className="list-add-action"; addPlan.textContent="+ Add plan"; addPlan.addEventListener("click",()=>openPlanEditor(null,{groupId:activePlanGroupId})); elements.workspaceOccurrences.append(addPlan);
   elements.workspaceUnmatchedSection.hidden = activePlanGroupId !== null;
   if (activePlanGroupId === null) {
     level.unmatched_transactions.forEach((tx) => {
@@ -1387,7 +1450,7 @@ function changeMonth(offset) {
   showFeature({ load: false });
   loadTransactions();
 }
-elements.addPlan.addEventListener("click", () => openPlanEditor());
+if (elements.addPlan) elements.addPlan.addEventListener("click", () => openPlanEditor());
 elements.manageGroups.addEventListener("click", openGroupManager);
 elements.closeGroups.addEventListener("click", () => elements.groupDialog.close());
 elements.newGroup.addEventListener("click", () => resetGroupEditor());
@@ -1395,6 +1458,10 @@ elements.groupForm.addEventListener("submit", saveGroup);
 elements.deleteGroup.addEventListener("click", removeGroup);
 elements.closePlan.addEventListener("click", () => { planCreationContext = null; elements.planDialog.close(); });
 elements.planForm.addEventListener("submit", savePlan);
+elements.createTypePlan.addEventListener("click", () => setCreationType("plan"));
+elements.createTypeGroup.addEventListener("click", () => setCreationType("group"));
+elements.directionExpense.addEventListener("click", () => setPlanDirection("expense"));
+elements.directionIncome.addEventListener("click", () => setPlanDirection("income"));
 elements.deactivatePlan.addEventListener("click", deactivatePlan);
 elements.previousMonth.addEventListener("click", () => changeMonth(-1));
 elements.previousPlanMonth.addEventListener("click", () => changePlanMonth(-1));
