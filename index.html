@@ -439,12 +439,7 @@
             </div>
             <p id="transactions-message" class="notice" role="status" aria-live="polite" hidden=""></p>
             <button id="review-imports" type="button" class="compact secondary" data-open-import="" hidden="">Review imported transactions</button>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Date</th><th>Partner</th><th>Account</th><th>Status</th><th class="amount">Amount</th><th>Details</th></tr></thead>
-                <tbody id="transactions-body"></tbody>
-              </table>
-            </div>
+            <div id="transactions-body" class="transaction-list" role="list"></div>
             <button id="load-more" class="compact secondary load-more" type="button" hidden="">Load more</button>
           </section>
 
