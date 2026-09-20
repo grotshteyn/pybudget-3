@@ -24,6 +24,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
 {
   const result = buildMonthFinancialReadModel({
     month: "2026-09-01",
+    asOfDate: "2026-09-15",
     plans: [plan("once", "Insurance"), plan("gym", "Gym"), plan("monthly", "Rent"), plan("yearly", "Tax")],
     occurrences: [
       occurrence("once", "2026-09-01", 10000),
@@ -60,6 +61,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
       : [];
     const [row] = buildMonthFinancialReadModel({
       month: "2026-09",
+    asOfDate: "2026-09-15",
       plans: [plan("p", "Expense")],
       occurrences: [occurrence("p", "2026-09-01", 10000)],
       allocations,
@@ -72,6 +74,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
 
   const [multiple] = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     plans: [plan("p", "Expense")],
     occurrences: [occurrence("p", "2026-09-01", 10000)],
     allocations: [
@@ -94,6 +97,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
   ]) {
     const [row] = buildMonthFinancialReadModel({
       month: "2026-09",
+    asOfDate: "2026-09-15",
       plans: [incomePlan],
       occurrences: [incomeOccurrence],
       allocations: expected.amount ? [allocation("income", "salary", expected.amount, "2026-09-03")] : [],
@@ -107,6 +111,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
 {
   const statusModel = (status) => buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     plans: [plan("p", "Status")],
     occurrences: [occurrence("p", "2026-09-01", 10000)],
     allocations: [allocation("same", "p", 4000, "2026-09-05", status)],
@@ -122,6 +127,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
 {
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     plans: [plan("gym", "Gym")],
     occurrences: [
       occurrence("gym", "2026-09-03", 2000),
@@ -143,6 +149,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
   ];
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     groups,
     plans: [plan("groceries", "Groceries", "expense", "food"), plan("restaurants", "Restaurants", "expense", "food")],
     occurrences: [
@@ -170,6 +177,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
   ];
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     groups,
     plans: [plan("ticket", "Deutschlandticket", "expense", "public")],
     occurrences: [occurrence("ticket", "2026-09-01", 4900)],
@@ -186,6 +194,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
   const groups = [{ id: "mixed", name: "Mixed", parent_group_id: null }];
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     groups,
     plans: [
       plan("expense", "Expense", "expense", "mixed"),
@@ -210,6 +219,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
 {
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     groups: [{ id: "g", name: "Grouped", parent_group_id: null }],
     plans: [plan("root", "Root"), plan("child", "Child", "expense", "g")],
     occurrences: [
@@ -225,6 +235,7 @@ function directionAmount(amount) { return -Math.abs(amount); }
 assert.throws(
   () => buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     groups: [
       { id: "a", name: "A", parent_group_id: "b" },
       { id: "b", name: "B", parent_group_id: "a" },
@@ -242,6 +253,7 @@ console.log("Plan occurrence and group financial read-model tests passed.");
 {
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     plans: [plan("weekly", "Weekly")],
     occurrences: [
       occurrence("weekly", "2026-09-03", 2000),
@@ -269,6 +281,7 @@ console.log("Plan occurrence and group financial read-model tests passed.");
   ];
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     groups,
     plans: [
       plan("expense-a", "Expense A", "expense", "expense-child"),
@@ -305,6 +318,7 @@ console.log("Plan occurrence and group financial read-model tests passed.");
   }));
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     groups,
     plans: [plan("deep-plan", "Deep plan", "expense", `deep-${depth - 1}`)],
     occurrences: [occurrence("deep-plan", "2026-09-01", 1234)],
@@ -324,6 +338,7 @@ console.log("Plan occurrence and group financial read-model tests passed.");
   };
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     plans: [plan("split-a", "Split A"), plan("split-b", "Split B")],
     occurrences: [
       occurrence("split-a", "2026-09-01", 6000),
@@ -352,6 +367,7 @@ console.log("Plan occurrence and group financial read-model tests passed.");
   };
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     groups: [
       { id: "root-group", name: "Root group", parent_group_id: null, sort_order: 20 },
       { id: "first-group", name: "First group", parent_group_id: null, sort_order: 10 },
@@ -409,6 +425,7 @@ console.log("Plan occurrence and group financial read-model tests passed.");
   ];
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     plans: [plan("p", "Plan")],
     occurrences: [occurrence("p", "2026-09-01", 1000)],
     transactions,
@@ -438,6 +455,7 @@ console.log("Plan occurrence and group financial read-model tests passed.");
 {
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     groups: [{ id: "g", name: "Group", parent_group_id: null }],
     plans: [],
     occurrences: [],
@@ -459,6 +477,7 @@ console.log("Plan occurrence and group financial read-model tests passed.");
   };
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     plans: [plan("later", "Later plan")],
     occurrences: [occurrence("later", "2026-09-10", 1500)],
     transactions: [allocatedButUnattachable],
@@ -486,6 +505,7 @@ console.log("Plan occurrence and group financial read-model tests passed.");
   };
   const result = buildMonthFinancialReadModel({
     month: "2026-09",
+    asOfDate: "2026-09-15",
     plans: [],
     occurrences: [],
     allocations: [],
