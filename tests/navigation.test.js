@@ -438,6 +438,9 @@ function mockSupabase() {
     await page.getByRole("button", { name: "Plans", exact: true }).click();
     await page.waitForFunction(() => document.querySelector("#workspace-unmatched-section")?.hidden === false);
     assert.equal(await page.locator("#workspace-unmatched .unmatched-transaction").count(), 1);
+    assert.equal(await page.locator("#workspace-unmatched .transaction-card").count(), 1);
+    assert.equal(await page.locator("#workspace-unmatched .transaction-card").first().locator(".transaction-card-identity").count(), 1);
+    assert.equal(await page.locator("#workspace-unmatched .transaction-card").first().locator(".transaction-card-amount").count(), 1);
     assert.match(await page.locator("#workspace-unmatched").textContent(), /Example salary/);
     assert.match(await page.locator("#workspace-unmatched").textContent(), /Unmatched/);
     await page.locator("#workspace-unmatched .unmatched-transaction").click();
