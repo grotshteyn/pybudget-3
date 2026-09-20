@@ -155,7 +155,6 @@ let accountsRequest = 0;
 let transactionsRequest = 0;
 let fileRequest = 0;
 const views = {
-  overview: "overview-view",
   plans: "plans-view",
   reports: "reports-view",
   accounts: "accounts-view",
@@ -193,21 +192,21 @@ function formatMonth(month) {
 function readNavigation() {
   const migrateRoute = (value) =>
     value
-      .replace(/^budget(?=\?|$)/, "overview")
+      .replace(/^(?:budget|overview)(?=\?|$)/, "plans")
       .replace(/^setup(?=\?|$)/, "accounts")
       .replace(/^transactions(?=\?|$)/, "accounts");
   let route = migrateRoute(window.location.hash.slice(1));
   if (!Object.hasOwn(views, route.split("?")[0])) {
     try {
-      route = migrateRoute(sessionStorage.getItem(navigationKey) || "overview");
+      route = migrateRoute(sessionStorage.getItem(navigationKey) || "plans");
     } catch {
-      route = "overview";
+      route = "plans";
     }
   }
   const [view, query = ""] = route.split("?");
   const params = new URLSearchParams(query);
   return {
-    view: Object.hasOwn(views, view) ? view : "overview",
+    view: Object.hasOwn(views, view) ? view : "plans",
     status: "all",
     account: /^[0-9a-f-]{36}$/i.test(params.get("account") || "")
       ? params.get("account")
