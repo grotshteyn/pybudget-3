@@ -393,7 +393,12 @@ function mockSupabase() {
         count,
       );
     const navigate = async (view) => {
-      await page.locator(`[data-view="${view}"]`).click();
+      const link = page.locator(`[data-view="${view}"]`);
+      if ((await link.getAttribute("aria-current")) === "page") {
+        await page.evaluate(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
+      } else {
+        await link.click();
+      }
       await active(view);
     };
 
