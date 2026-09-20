@@ -386,7 +386,7 @@ function mockSupabase() {
     const rows = async (count) =>
       page.waitForFunction(
         (n) =>
-          document.querySelectorAll("#transactions-body tr").length === n &&
+          document.querySelectorAll("#transactions-body .transaction-card").length === n &&
           document
             .querySelector("#transactions-view")
             .getAttribute("aria-busy") === "false",
@@ -441,6 +441,10 @@ function mockSupabase() {
     assert.match(await page.locator("#workspace-unmatched").textContent(), /Example salary/);
     assert.match(await page.locator("#workspace-unmatched").textContent(), /Unmatched/);
     await page.locator("#workspace-unmatched .unmatched-transaction").click();
+    await page.locator("#transaction-detail-dialog").waitFor({ state: "visible" });
+    assert.match(await page.locator("#transaction-detail-title").textContent(), /Example salary/);
+    assert.match(await page.locator("#transaction-detail-plan-state").textContent(), /Not assigned/);
+    await page.locator("#transaction-detail-assign").click();
     await page.locator("#assign-dialog").waitFor({ state: "visible" });
     assert.match(await page.locator("#assign-title").textContent(), /Example salary/);
     assert.equal(await page.locator("#assign-include").isChecked(), true);
@@ -458,6 +462,7 @@ function mockSupabase() {
     await page.locator("#close-plan").click();
 
     await page.locator("#workspace-unmatched .unmatched-transaction").click();
+    await page.locator("#transaction-detail-assign").click();
     await page.waitForFunction(() => document.querySelector("#assign-group")?.disabled === false);
     assert.equal(await page.locator("#assign-plan").inputValue(), "p1");
     assert.equal(await page.locator("#assign-group").inputValue(), "g1");
@@ -630,7 +635,7 @@ function mockSupabase() {
     });
     await page.locator("#logout-button").click();
     await page.locator("#auth-view").waitFor();
-    assert.equal(await page.locator("#transactions-body tr").count(), 0);
+    assert.equal(await page.locator("#transactions-body .transaction-card").count(), 0);
     assert.equal(new URL(page.url()).hash.includes("q="), false);
     await page.reload();
     await page.locator("#auth-view").waitFor();
@@ -746,7 +751,7 @@ function mockSupabase() {
     await navigate("transactions");
     await page.locator("#logout-button").click();
     await page.waitForTimeout(300);
-    assert.equal(await page.locator("#transactions-body tr").count(), 0);
+    assert.equal(await page.locator("#transactions-body .transaction-card").count(), 0);
     await page.fill("#email", "test@example.invalid");
     await page.fill("#password", "synthetic-password");
     await page.locator("#submit-button").click();
