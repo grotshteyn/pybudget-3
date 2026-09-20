@@ -421,3 +421,55 @@ body.signed-in td:nth-child(6)::before { content:'Details'; }
 .creation-type-button.active,.direction-option.active { background:white; color:var(--green); box-shadow:0 1px 5px rgba(0,0,0,.08); }
 .list-add-action { width:100%; margin-top:0; padding:13px 16px; border:1px dashed var(--green); border-radius:12px; background:transparent; color:var(--green); text-align:left; font-weight:750; }
 @media(max-width:560px){ .compact-form-row { grid-template-columns:1fr; gap:0; } }
+
+.transaction-list,
+.occurrence-matches {
+  display: grid;
+  gap: 6px;
+}
+.transaction-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 2px 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: inherit;
+  text-align: left;
+}
+.transaction-card-identity,
+.transaction-card-secondary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.transaction-card-amount,
+.transaction-card-context {
+  text-align: right;
+  white-space: nowrap;
+}
+.transaction-card-secondary,
+.transaction-card-context {
+  color: var(--muted);
+  font-size: .84rem;
+}
+.transaction-card.unmatched-transaction {
+  border-style: dashed;
+}
+.transaction-detail-summary .transaction-card {
+  pointer-events: none;
+}
+.transaction-detail-fields {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 7px 14px;
+  margin: 18px 0;
+}
+.transaction-detail-fields dt { color: var(--muted); }
+.transaction-detail-fields dd { margin: 0; overflow-wrap: anywhere; }
+.transaction-detail-plan { border-top: 1px solid var(--border); padding-top: 4px; }
