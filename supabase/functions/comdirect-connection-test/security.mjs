@@ -14,7 +14,7 @@ const SAFE_ERROR_EXACT = new Set([
   "oauth_access_token_missing", "oauth_secondary_token_missing", "two_factor_timeout",
   "diagnostic_allowlist_not_configured", "diagnostic_user_not_allowed",
   "pybudget_auth_required", "supabase_auth_not_configured", "pybudget_auth_invalid",
-  "unsupported_action", "invalid_json", "origin_not_allowed",
+  "unsupported_action", "invalid_json", "origin_not_allowed", "diagnostic_live_disabled",
 ]);
 
 const SAFE_ERROR_PREFIXES = Object.freeze([
