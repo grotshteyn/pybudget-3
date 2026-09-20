@@ -546,15 +546,14 @@ function mockSupabase() {
       .waitFor();
     await page.getByRole("button", { name: "Reactivate", exact: true }).click();
     await page.getByRole("button", { name: "Archive", exact: true }).waitFor();
-    assert.equal(await page.locator("#accounts-view #csv-file").count(), 0);
+    assert.equal(await page.locator("#accounts-view #csv-file").count(), 1);
     assert.equal(
       await page.locator("#accounts-view #reconciliation-list").count(),
-      0,
-    );
-    assert.equal(
-      await page.locator("#accounts-view").getByRole("heading").count(),
       1,
     );
+    assert.equal(await page.locator("#accounts-title").count(), 1);
+    assert.equal(await page.locator("#transactions-title").count(), 1);
+    assert.equal(await page.locator('[data-view="transactions"]').count(), 0);
     await navigate("accounts");
     await page.locator("#accounts-view [data-open-import]").first().click();
     await page.locator("#import-dialog").waitFor();
