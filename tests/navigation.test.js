@@ -453,6 +453,8 @@ function mockSupabase() {
     assert.equal(await page.locator("#plan-name").inputValue(), "Example salary");
     assert.equal(await page.locator("#plan-amount").inputValue(), "100.00");
     assert.equal(await page.locator("#plan-direction").inputValue(), "income");
+    assert.equal(await page.locator("#direction-income").getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator("#direction-expense").getAttribute("aria-pressed"), "false");
     await page.locator("#close-plan").click();
 
     await page.locator("#workspace-unmatched .unmatched-transaction").click();
