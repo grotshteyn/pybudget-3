@@ -675,7 +675,23 @@ function assignFromTransactionDetail() {
 
 function renderTransactions() {
   clearMessage(elements.transactionsMessage);
-  const cards = transactions.map((transaction) => createTransactionCard(transaction));
+  const cards = transactions.map((transaction) => {
+    const card = createTransactionCard(transaction);
+    const isNew = recentBatch && (transaction.imports || []).some(
+      (i) => i.batch_id === recentBatch &&
+        (i.observed_at === transaction.first_seen_at || i.observed_at === transaction.booked_at),
+    );
+    if (isNew) {
+      card.classList.add("new-transaction");
+      card.setAttribute("aria-label", "New or updated transaction");
+      const dot = document.createElement("span");
+      dot.className = "new-dot";
+      dot.title = "New or updated in your latest import";
+      dot.setAttribute("aria-label", dot.title);
+      card.querySelector(".transaction-card-identity")?.prepend(dot);
+    }
+    return card;
+  });
   elements.transactionsBody.replaceChildren(...cards);
   loadMore.hidden = transactionState !== "ready" || transactions.length >= ledger.count;
   loadMore.disabled = transactionState !== "ready";
