@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { buildMonthFinancialReadModel, occurrenceKey } from "../plan-read-model.js";
 
-const plan = (id, name, direction = "expense", group_id = null) => ({ id, name, direction, group_id });
+const plan = (id, name, direction = "expense", group_id = null, schedule_type = "monthly", end_date = null) => ({ id, name, direction, group_id, schedule_type, end_date });
 const occurrence = (plan_id, occurrence_date, amount_cent, direction = "expense") => ({
   plan_id, occurrence_date, amount_cent, direction,
 });
@@ -492,4 +492,106 @@ console.log("Plan occurrence and group financial read-model tests passed.");
     transactions: [undated],
   });
   assert.deepEqual(result.unmatched_transactions, []);
+}
+
+
+{
+  const result = buildMonthFinancialReadModel({
+    month: "2026-09",
+    asOfDate: "2026-09-20",
+    plans: [
+      plan("weekly-expense", "Weekly expense", "expense", "g", "weekly"),
+      plan("weekly-income", "Weekly income", "income", "g", "weekly"),
+      plan("monthly-expense", "Monthly expense", "expense", null, "monthly"),
+      plan("one-time", "One time", "expense", null, "one_time"),
+    ],
+    groups: [{ id: "g", name: "Group", parent_group_id: null }],
+    occurrences: [
+      occurrence("weekly-expense", "2026-09-08", 10000, "expense"),
+      occurrence("weekly-expense", "2026-09-15", 10000, "expense"),
+      occurrence("weekly-expense", "2026-09-22", 10000, "expense"),
+      occurrence("weekly-income", "2026-09-08", 20000, "income"),
+      occurrence("monthly-expense", "2026-09-01", 30000, "expense"),
+      occurrence("one-time", "2026-09-19", 4000, "expense"),
+    ],
+    allocations: [
+      allocation("past-partial", "weekly-expense", 7000, "2026-09-10"),
+      allocation("past-income-partial", "weekly-income", 5000, "2026-09-10"),
+    ],
+  });
+
+  const byId = new Map(result.occurrences.map((row) => [row.id, row]));
+  const pastExpense = byId.get("weekly-expense:2026-09-08");
+  assert.equal(pastExpense.actual_cent, 7000);
+  assert.equal(pastExpense.planned_cent, 10000);
+  assert.equal(pastExpense.earmarked_cent, 0);
+  assert.equal(pastExpense.is_closed, true);
+  assert.equal(pastExpense.occurrence_end_date, "2026-09-14");
+
+  const currentExpense = byId.get("weekly-expense:2026-09-15");
+  assert.equal(currentExpense.earmarked_cent, 10000);
+  assert.equal(currentExpense.is_closed, false);
+  assert.equal(currentExpense.occurrence_end_date, "2026-09-21");
+
+  const futureExpense = byId.get("weekly-expense:2026-09-22");
+  assert.equal(futureExpense.earmarked_cent, 10000);
+  assert.equal(futureExpense.is_closed, false);
+
+  const pastIncome = byId.get("weekly-income:2026-09-08");
+  assert.equal(pastIncome.actual_cent, 5000);
+  assert.equal(pastIncome.receivable_cent, 0);
+  assert.equal(pastIncome.is_closed, true);
+
+  const monthlyExpense = byId.get("monthly-expense:2026-09-01");
+  assert.equal(monthlyExpense.occurrence_end_date, "2026-09-30");
+  assert.equal(monthlyExpense.earmarked_cent, 30000);
+  assert.equal(monthlyExpense.is_closed, false);
+
+  const oneTime = byId.get("one-time:2026-09-19");
+  assert.equal(oneTime.occurrence_end_date, "2026-09-19");
+  assert.equal(oneTime.earmarked_cent, 0);
+  assert.equal(oneTime.is_closed, true);
+
+  const group = result.groups.find((row) => row.id === "g");
+  assert.equal(group.expense_planned_cent, 30000);
+  assert.equal(group.expense_actual_cent, 7000);
+  assert.equal(group.expense_earmarked_cent, 20000);
+  assert.equal(group.income_planned_cent, 20000);
+  assert.equal(group.income_actual_cent, 5000);
+  assert.equal(group.income_receivable_cent, 0);
+}
+
+{
+  const boundary = buildMonthFinancialReadModel({
+    month: "2026-09",
+    asOfDate: "2026-09-21",
+    plans: [plan("weekly", "Weekly", "expense", null, "weekly")],
+    occurrences: [occurrence("weekly", "2026-09-15", 10000)],
+    allocations: [],
+  }).occurrences[0];
+  assert.equal(boundary.is_closed, false);
+  assert.equal(boundary.earmarked_cent, 10000);
+
+  const afterBoundary = buildMonthFinancialReadModel({
+    month: "2026-09",
+    asOfDate: "2026-09-22",
+    plans: [plan("weekly", "Weekly", "expense", null, "weekly")],
+    occurrences: [occurrence("weekly", "2026-09-15", 10000)],
+    allocations: [],
+  }).occurrences[0];
+  assert.equal(afterBoundary.is_closed, true);
+  assert.equal(afterBoundary.earmarked_cent, 0);
+}
+
+{
+  const capped = buildMonthFinancialReadModel({
+    month: "2026-09",
+    asOfDate: "2026-09-19",
+    plans: [plan("short", "Short", "expense", null, "weekly", "2026-09-18")],
+    occurrences: [occurrence("short", "2026-09-15", 10000)],
+    allocations: [],
+  }).occurrences[0];
+  assert.equal(capped.occurrence_end_date, "2026-09-18");
+  assert.equal(capped.is_closed, true);
+  assert.equal(capped.earmarked_cent, 0);
 }
