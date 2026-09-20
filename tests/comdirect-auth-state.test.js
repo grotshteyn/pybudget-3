@@ -31,6 +31,7 @@ const { pathToFileURL } = require("node:url");
     /provider_origin_blocked/);
 
   assert.equal(security.sanitizeErrorCode(new Error("accounts_failed_401")), "accounts_failed_401");
+  assert.equal(security.sanitizeErrorCode(new Error("diagnostic_live_disabled")), "diagnostic_live_disabled");
   assert.equal(security.sanitizeErrorCode(new Error("oauth_password_failed_500")), "oauth_password_failed_500");
   assert.equal(security.sanitizeErrorCode(new Error("provider said token=super-secret")), "unexpected_error");
   assert.equal(security.sanitizeErrorCode({ message: "pin=123456" }), "unexpected_error");
