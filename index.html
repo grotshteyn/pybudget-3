@@ -296,6 +296,20 @@
             <div id="accounts-list" class="accounts-list"></div>
           </section>
 
+            <dialog id="transaction-detail-dialog" class="import-dialog transaction-detail-dialog" aria-labelledby="transaction-detail-title">
+              <div class="section-heading">
+                <h2 id="transaction-detail-title">Transaction</h2>
+                <button id="close-transaction-detail" class="compact secondary" type="button">Close</button>
+              </div>
+              <div id="transaction-detail-summary" class="transaction-detail-summary"></div>
+              <dl id="transaction-detail-fields" class="transaction-detail-fields"></dl>
+              <div class="transaction-detail-plan">
+                <span class="field-label">Plan</span>
+                <p id="transaction-detail-plan-state" class="muted">Not assigned</p>
+                <button id="transaction-detail-assign" class="secondary" type="button">Add to plan</button>
+              </div>
+            </dialog>
+
             <dialog id="assign-dialog" class="import-dialog" aria-labelledby="assign-title">
               <div class="section-heading">
                 <h2 id="assign-title">Assign transaction</h2>
