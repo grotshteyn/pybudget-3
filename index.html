@@ -1,170 +1,413 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="PyBudget authentication and bank transaction import">
-  <title>PyBudget</title>
-  <link rel="stylesheet" href="styles.css?v=6">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
-  <main class="shell">
-    <section class="brand-panel" aria-labelledby="brand-title">
-      <p class="eyebrow">Your money, made clearer</p>
-      <h1 id="brand-title">PyBudget</h1>
-      <p class="brand-copy">See what is really available, including money already reserved by pending transactions.</p>
-      <div class="preview-card" aria-hidden="true">
-        <span>Available after pending</span>
-        <strong>Honest by design</strong>
-        <div class="preview-bars"><i></i><i></i><i></i><i></i></div>
-      </div>
-    </section>
-
-    <section class="auth-panel">
-      <div id="setup-warning" class="notice warning" hidden>
-        Add your Supabase URL and publishable key to <code>config.js</code>.
-      </div>
-
-      <div id="auth-view" class="card auth-card">
-        <div class="tabs" role="tablist" aria-label="Authentication">
-          <button id="login-tab" class="tab active" type="button" role="tab" aria-selected="true">Log in</button>
-          <button id="signup-tab" class="tab" type="button" role="tab" aria-selected="false">Create account</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="PyBudget authentication and bank transaction import"
+    />
+    <title>PyBudget</title>
+    <link rel="stylesheet" href="styles.css?v=10" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="brand-panel" aria-labelledby="brand-title">
+        <p class="eyebrow">Your money, made clearer</p>
+        <h1 id="brand-title">PyBudget</h1>
+        <p class="brand-copy">
+          See what is really available, including money already reserved by
+          pending transactions.
+        </p>
+        <div class="preview-card" aria-hidden="true">
+          <span>Available after pending</span>
+          <strong>Honest by design</strong>
+          <div class="preview-bars"><i></i><i></i><i></i><i></i></div>
         </div>
-        <form id="auth-form">
-          <h2 id="form-title">Welcome back</h2>
-          <p id="form-subtitle" class="muted">Log in to continue to PyBudget.</p>
-          <label for="email">Email</label>
-          <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
-          <label for="password">Password</label>
-          <input id="password" name="password" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters" required>
-          <button id="submit-button" class="primary" type="submit">Log in</button>
-          <button id="reset-button" class="text-button" type="button">Forgot your password?</button>
-          <p id="auth-message" class="notice" role="status" aria-live="polite" hidden></p>
-        </form>
-      </div>
+      </section>
 
-      <div id="dashboard-view" class="dashboard-stack" hidden>
-        <section class="card dashboard">
-          <div class="dashboard-heading">
-            <div>
-              <p class="eyebrow">Signed in</p>
-              <h2>Welcome to PyBudget</h2>
-            </div>
-            <button id="logout-button" class="compact secondary top-logout-button" type="button">Log out</button>
-          </div>
-          <div class="account-row">
-            <span>Account</span>
-            <strong id="user-email"></strong>
-          </div>
-          <nav class="app-menu" aria-label="PyBudget sections">
-            <a class="menu-button" data-view="overview" href="#overview">Overview</a>
-            <a class="menu-button" data-view="transactions" href="#transactions">Transactions</a>
-            <a class="menu-button" data-view="budget" href="#budget">Budget</a>
-            <a class="menu-button" data-view="reports" href="#reports">Reports</a>
-            <a class="menu-button" data-view="setup" href="#setup">Setup</a>
-          </nav>
-        </section>
+      <section class="auth-panel">
+        <div id="setup-warning" class="notice warning" hidden="">
+          Add your Supabase URL and publishable key to <code>config.js</code>.
+        </div>
 
-        <section id="overview-view" class="card feature-view" aria-labelledby="overview-title" hidden>
-          <p class="eyebrow green">Overview</p>
-          <h2 id="overview-title" tabindex="-1">Your workspace</h2>
-          <p class="muted">Import bank transactions and manage your accounts in Setup, then review your recent ledger in Transactions.</p>
-          <div class="view-actions"><a class="secondary" href="#setup">Manage accounts and import</a><a class="secondary" href="#transactions">Review transactions</a></div>
-          <p class="notice warning">Balance overview and available-to-spend calculations are planned and are not available yet.</p>
-        </section>
-
-        <section id="budget-view" class="card feature-view" aria-labelledby="budget-title" hidden>
-          <p class="eyebrow green">Budget</p>
-          <h2 id="budget-title" tabindex="-1">Monthly budget</h2>
-          <p class="notice warning">Not available yet. Monthly category budgets and budget comparisons are planned.</p>
-          <a href="#transactions">Review imported transactions</a>
-        </section>
-
-        <section id="reports-view" class="card feature-view" aria-labelledby="reports-title" hidden>
-          <p class="eyebrow green">Reports</p>
-          <h2 id="reports-title" tabindex="-1">Reports</h2>
-          <label for="report-variant">Report</label>
-          <select id="report-variant"><option value="expenses">Expense summary</option><option value="settlement">Settlement</option></select>
-          <p id="report-message" class="notice warning" role="status" aria-live="polite"></p>
-        </section>
-
-        <section id="import-view" class="setup-stack feature-view" aria-labelledby="setup-title" hidden>
-          <section class="card"><p class="eyebrow green">Setup</p><h2 id="setup-title" tabindex="-1">Accounts, imports, and categories</h2></section>
-          <section class="card">
-            <div class="section-heading">
-              <div><p class="eyebrow green">Accounts</p><h2>Detected bank accounts</h2></div>
-              <button id="refresh-accounts" class="compact secondary" type="button">Refresh</button>
-            </div>
-            <p class="muted">Accounts are created automatically when they are found in an import. You can rename or archive them here.</p>
-            <p id="accounts-message" class="notice" role="status" aria-live="polite" hidden></p>
-            <div id="accounts-list" class="accounts-list"></div>
-          </section>
-          <section class="card">
-          <p class="eyebrow green">Import</p>
-          <h2>Bank transactions</h2>
-          <p class="muted">Select a Comdirect CSV. The file is parsed in your browser; only normalized transactions are sent to your private database.</p>
-          <label class="file-picker" for="csv-file">
-            <span>Choose Comdirect CSV</span>
-            <input id="csv-file" type="file" accept=".csv,text/csv">
-          </label>
-          <div id="import-preview" class="import-preview" hidden>
-            <div><span>Accounts</span><strong id="preview-accounts">0</strong></div>
-            <div><span>Transactions</span><strong id="preview-transactions">0</strong></div>
-            <div><span>Pending</span><strong id="preview-pending">0</strong></div>
-            <div><span>Rejected rows</span><strong id="preview-errors">0</strong></div>
+        <div id="auth-view" class="card auth-card">
+          <div class="tabs" role="tablist" aria-label="Authentication">
+            <button
+              id="login-tab"
+              class="tab active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+            >
+              Log in
+            </button>
+            <button
+              id="signup-tab"
+              class="tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+            >
+              Create account
+            </button>
           </div>
-          <button id="import-button" class="primary" type="button" disabled>Import transactions</button>
-          <p id="import-message" class="notice" role="status" aria-live="polite" hidden></p>
-          </section>
-          <section class="card" aria-labelledby="categories-title">
-            <p class="eyebrow green">Categories</p><h2 id="categories-title">Category setup</h2>
-            <p class="notice warning">Not available yet. Category management and categorization rules are planned.</p>
-          </section>
-        </section>
-
-        <section id="transactions-view" class="card transactions-card feature-view" aria-labelledby="transactions-title" hidden>
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow green">Ledger</p>
-              <h2 id="transactions-title" tabindex="-1">Recent transactions</h2>
-            </div>
-            <button id="refresh-transactions" class="compact secondary" type="button">Refresh</button>
-          </div>
-          <p class="muted">Showing up to the 200 most recent imported transactions. Totals apply to the filtered rows; they are not account balances.</p>
-          <div class="transaction-filters">
-            <div><label for="transaction-status">Status</label><select id="transaction-status"><option value="all">All statuses</option><option value="booked">Booked</option><option value="pending">Pending</option></select></div>
-            <div><label for="transaction-search">Search transactions</label><input id="transaction-search" type="search" maxlength="120" placeholder="Partner, description, or account"></div>
-          </div>
-          <div class="ledger-totals">
-            <div><span>Booked</span><strong id="booked-total">€0.00</strong></div>
-            <div><span>Pending</span><strong id="pending-total">€0.00</strong></div>
-            <div><span>Net including pending</span><strong id="combined-total">€0.00</strong></div>
-          </div>
-          <p id="transactions-message" class="notice" role="status" aria-live="polite" hidden></p>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Date</th><th>Partner</th><th>Account</th><th>Status</th><th class="amount">Amount</th></tr></thead>
-              <tbody id="transactions-body"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="card" hidden>
-          <p class="eyebrow green">Storage test</p>
-          <form id="test-field-form" class="test-field-form">
-            <label for="test-field">Private test field</label>
-            <textarea id="test-field" name="test-field" maxlength="500" rows="3" placeholder="Write something only you can access"></textarea>
-            <button id="save-field-button" class="primary" type="submit">Save test value</button>
-            <p id="data-message" class="notice" role="status" aria-live="polite" hidden></p>
+          <form id="auth-form">
+            <h2 id="form-title">Welcome back</h2>
+            <p id="form-subtitle" class="muted">
+              Log in to continue to PyBudget.
+            </p>
+            <label for="email">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              required=""
+            />
+            <label for="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              minlength="6"
+              placeholder="At least 6 characters"
+              required=""
+            />
+            <button id="submit-button" class="primary" type="submit">
+              Log in
+            </button>
+            <button id="reset-button" class="text-button" type="button">
+              Forgot your password?
+            </button>
+            <p
+              id="auth-message"
+              class="notice"
+              role="status"
+              aria-live="polite"
+              hidden=""
+            ></p>
           </form>
-        </section>
-      </div>
-    </section>
-  </main>
+        </div>
 
-  <script src="config.js?v=5"></script>
-  <script src="importer.js?v=5"></script>
-  <script src="app.js?v=6"></script>
-</body>
+        <div id="dashboard-view" class="dashboard-stack" hidden="">
+          <section class="card dashboard">
+            <div class="dashboard-heading">
+              <div>
+                <p class="eyebrow">Signed in</p>
+                <h2>Welcome to PyBudget</h2>
+              </div>
+              <button
+                id="logout-button"
+                class="compact secondary top-logout-button"
+                type="button"
+              >
+                Log out
+              </button>
+            </div>
+            <div class="account-row">
+              <span>Account</span>
+              <strong id="user-email"></strong>
+            </div>
+            <nav class="app-menu" aria-label="PyBudget sections">
+              <a class="menu-button" data-view="plans" href="#plans">Plans</a>
+              <a class="menu-button" data-view="accounts" href="#accounts"
+                >Accounts</a
+              >
+            </nav>
+          </section>
+
+          <section id="plans-view" class="card feature-view" aria-labelledby="plans-title" hidden="">
+            <div class="section-heading">
+              <h2 id="plans-title" tabindex="-1">Plans</h2>
+              <div class="assignment-actions"><button id="manage-groups" type="button" class="compact secondary">Manage groups</button></div>
+            </div>
+            <dialog id="group-dialog" class="import-dialog" aria-labelledby="group-dialog-title">
+              <div class="section-heading"><h2 id="group-dialog-title">Plan groups</h2><button id="close-groups" class="compact secondary" type="button">Close</button></div>
+              <form id="group-form">
+                <input id="group-id" type="hidden" />
+                <label for="group-name">Name</label><input id="group-name" maxlength="120" required />
+                <label for="group-parent">Parent group</label><select id="group-parent"><option value="">Root</option></select>
+                <label for="group-order">Order</label><input id="group-order" type="number" step="1" value="0" />
+                <div class="assignment-actions"><button class="primary" type="submit">Save group</button><button id="delete-group" class="secondary" type="button" hidden>Delete group</button><button id="new-group" class="secondary" type="button">New</button></div>
+                <p id="group-form-message" class="notice" role="status" aria-live="polite" hidden></p>
+              </form>
+              <div id="group-list" class="accounts-list"></div>
+            </dialog>
+            <dialog id="plan-dialog" class="import-dialog" aria-labelledby="plan-dialog-title">
+              <div class="section-heading">
+                <h2 id="plan-dialog-title">Add plan</h2>
+                <button id="close-plan" class="compact secondary" type="button">Close</button>
+              </div>
+              <form id="plan-form">
+                <input id="plan-id" type="hidden" />
+                <div id="creation-type" class="creation-type" role="group" aria-label="Create">
+                  <button id="create-type-plan" class="creation-type-button active" type="button" aria-pressed="true">Plan</button>
+                  <button id="create-type-group" class="creation-type-button" type="button" aria-pressed="false">Group</button>
+                </div>
+                <div id="plan-fields">
+                  <div class="compact-form-row">
+                    <div><label for="plan-name">Name</label><input id="plan-name" maxlength="120" required /></div>
+                    <div><label for="plan-amount">Amount (€)</label><input id="plan-amount" type="number" min="0.01" step="0.01" required /></div>
+                  </div>
+                  <div class="compact-form-row">
+                    <div>
+                      <span class="field-label">Direction</span>
+                      <input id="plan-direction" type="hidden" value="expense" />
+                      <div class="direction-toggle" role="group" aria-label="Direction">
+                        <button id="direction-expense" class="direction-option active" type="button" aria-pressed="true">Expense</button>
+                        <button id="direction-income" class="direction-option" type="button" aria-pressed="false">Income</button>
+                      </div>
+                    </div>
+                    <div><label for="plan-group">Group</label><select id="plan-group"><option value="">Root</option></select></div>
+                  </div>
+                  <label for="plan-schedule">Schedule</label>
+                  <select id="plan-schedule"><option value="one_time">One time</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
+                  <div class="compact-form-row">
+                    <div><label for="plan-start">Start date</label><input id="plan-start" type="date" required /></div>
+                    <div><label for="plan-end">End date (optional)</label><input id="plan-end" type="date" /></div>
+                  </div>
+                </div>
+                <div id="creation-group-fields" hidden>
+                  <label for="creation-group-name">Name</label><input id="creation-group-name" maxlength="120" />
+                  <label for="creation-group-parent">Parent group</label><select id="creation-group-parent"><option value="">Root</option></select>
+                </div>
+                <div class="assignment-actions">
+                  <button id="save-plan" class="primary" type="submit">Save plan</button>
+                  <button id="deactivate-plan" class="secondary" type="button" hidden>Deactivate</button>
+                </div>
+                <p id="plan-form-message" class="notice" role="status" aria-live="polite" hidden></p>
+              </form>
+            </dialog>
+            <div class="month-navigation" aria-label="Plan month">
+              <button id="previous-plan-month" class="compact secondary" type="button" aria-label="Previous plan month">‹</button>
+              <strong id="plan-month" aria-live="polite"></strong>
+              <button id="next-plan-month" class="compact secondary" type="button" aria-label="Next plan month">›</button>
+            </div>
+            <p id="plans-message" class="notice" role="status" aria-live="polite" hidden=""></p>
+            <nav id="workspace-breadcrumb" class="assignment-actions" aria-label="Plan group location"></nav>
+            <section aria-labelledby="plan-groups-title">
+              <h3 id="plan-groups-title">Groups</h3>
+              <div id="workspace-groups" class="accounts-list"></div>
+            </section>
+            <section aria-labelledby="plan-occurrences-title">
+              <h3 id="plan-occurrences-title">Plan occurrences</h3>
+              <div id="workspace-occurrences" class="accounts-list"></div>
+            </section>
+            <section id="workspace-unmatched-section" aria-labelledby="plan-unmatched-title">
+              <h3 id="plan-unmatched-title">Unmatched transactions</h3>
+              <div id="workspace-unmatched" class="accounts-list"></div>
+            </section>
+            <div id="expense-plans" hidden></div><div id="income-plans" hidden></div>
+          </section>
+
+          <section
+            class="card feature-view"
+            id="accounts-view"
+            hidden=""
+            aria-labelledby="accounts-title"
+          >
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow green">Accounts</p>
+                <h2 id="accounts-title" tabindex="-1">Accounts</h2>
+              </div>
+              <button
+                id="refresh-accounts"
+                class="compact secondary"
+                type="button"
+              >
+                Refresh
+              </button>
+            </div>
+            <p class="muted">
+              Accounts are created automatically when they are found in an
+              import. You can rename or archive them here.
+            </p>
+            <p
+              id="accounts-message"
+              class="notice"
+              role="status"
+              aria-live="polite"
+              hidden=""
+            ></p>
+            <div id="accounts-list" class="accounts-list"></div>
+            <section class="account-transactions" aria-labelledby="transactions-title">
+            <dialog
+              id="import-dialog"
+              class="import-dialog"
+              aria-labelledby="import-title"
+            >
+              <div class="section-heading">
+                <h2 id="import-title">Import transactions</h2>
+                <button
+                  id="close-import"
+                  class="compact secondary"
+                  type="button"
+                  aria-label="Close import window"
+                >
+                  Close
+                </button>
+              </div>
+              <section class="">
+                <p class="muted">
+                  Choose a Comdirect CSV to add transactions to your accounts.
+                </p>
+                <label class="file-picker" for="csv-file">
+                  <span>Choose Comdirect CSV</span>
+                  <input id="csv-file" type="file" accept=".csv,text/csv" />
+                </label>
+                <div id="import-preview" class="import-preview" hidden="">
+                  <div>
+                    <span>Accounts</span
+                    ><strong id="preview-accounts">0</strong>
+                  </div>
+                  <div>
+                    <span>Transactions</span
+                    ><strong id="preview-transactions">0</strong>
+                  </div>
+                  <div>
+                    <span>Pending</span><strong id="preview-pending">0</strong>
+                  </div>
+                  <div>
+                    <span>Rejected rows</span
+                    ><strong id="preview-errors">0</strong>
+                  </div>
+                </div>
+                <button
+                  id="import-button"
+                  class="primary"
+                  type="button"
+                  disabled=""
+                >
+                  Import transactions
+                </button>
+                <p
+                  id="import-message"
+                  class="notice"
+                  role="status"
+                  aria-live="polite"
+                  hidden=""
+                ></p>
+              </section>
+              <section class="" aria-labelledby="reconciliation-title">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow green">Reconciliation</p>
+                    <h2 id="reconciliation-title">
+                      Transactions needing review
+                    </h2>
+                  </div>
+                  <button
+                    id="refresh-reconciliation"
+                    class="compact secondary"
+                    type="button"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <p class="muted">
+                  When a booked transaction could match more than one pending
+                  transaction, PyBudget waits for you instead of guessing.
+                </p>
+                <p
+                  id="reconciliation-message"
+                  class="notice"
+                  role="status"
+                  aria-live="polite"
+                  hidden=""
+                ></p>
+                <div id="reconciliation-list" class="accounts-list"></div>
+              </section>
+            </dialog>
+            <p
+              id="import-result"
+              class="notice success"
+              role="status"
+              hidden=""
+            ></p>
+            <div class="section-heading">
+              <h2 id="transactions-title" tabindex="-1">Transactions</h2>
+              <button type="button" class="compact primary import-plus" data-open-import="" aria-label="Add transactions">+</button>
+            </div>
+            <div class="month-navigation" aria-label="Transaction month">
+              <button id="previous-month" class="compact secondary" type="button" aria-label="Previous month">‹</button>
+              <strong id="transaction-month" aria-live="polite"></strong>
+              <button id="next-month" class="compact secondary" type="button" aria-label="Next month">›</button>
+            </div>
+            <p id="transactions-message" class="notice" role="status" aria-live="polite" hidden=""></p>
+            <button id="review-imports" type="button" class="compact secondary" data-open-import="" hidden="">Review imported transactions</button>
+            <div id="transactions-body" class="transaction-list" role="list"></div>
+            <button id="load-more" class="compact secondary load-more" type="button" hidden="">Load more</button>
+            </section>
+          </section>
+
+            <dialog id="transaction-detail-dialog" class="import-dialog transaction-detail-dialog" aria-labelledby="transaction-detail-title">
+              <div class="section-heading">
+                <h2 id="transaction-detail-title">Transaction</h2>
+                <button id="close-transaction-detail" class="compact secondary" type="button">Close</button>
+              </div>
+              <div id="transaction-detail-summary" class="transaction-detail-summary"></div>
+              <dl id="transaction-detail-fields" class="transaction-detail-fields"></dl>
+              <div class="transaction-detail-plan">
+                <span class="field-label">Plan</span>
+                <p id="transaction-detail-plan-state" class="muted">Not assigned</p>
+                <button id="transaction-detail-assign" class="secondary" type="button">Add to plan</button>
+              </div>
+            </dialog>
+
+            <dialog id="assign-dialog" class="import-dialog" aria-labelledby="assign-title">
+              <div class="section-heading">
+                <h2 id="assign-title">Assign transaction</h2>
+                <button id="close-assign" class="compact secondary" type="button">Close</button>
+              </div>
+              <p class="muted">Connect this transaction to an existing Plan, or create a new Plan from it.</p>
+              <label for="assign-plan">Plan</label>
+              <select id="assign-plan"></select>
+              <label for="assign-group">Group</label>
+              <select id="assign-group"></select>
+              <p class="muted">Changing the Group moves the selected Plan when you save.</p>
+              <button id="assign-new-plan" class="secondary" type="button">Create new Plan</button>
+              <label class="checkbox-row"><input id="assign-include" type="checkbox" checked /> Include this transaction in the Plan</label>
+              <label class="checkbox-row"><input id="assign-rule" type="checkbox" /> Create a Rule for similar transactions</label>
+              <div class="assignment-actions">
+                <button id="assign-once" class="primary" type="button">Save assignment</button>
+              </div>
+              <p id="assign-message" class="notice" role="status" aria-live="polite" hidden=""></p>
+            </dialog>
+
+          <section class="card" hidden="">
+            <p class="eyebrow green">Storage test</p>
+            <form id="test-field-form" class="test-field-form">
+              <label for="test-field">Private test field</label>
+              <textarea
+                id="test-field"
+                name="test-field"
+                maxlength="500"
+                rows="3"
+                placeholder="Write something only you can access"
+              ></textarea>
+              <button id="save-field-button" class="primary" type="submit">
+                Save test value
+              </button>
+              <p
+                id="data-message"
+                class="notice"
+                role="status"
+                aria-live="polite"
+                hidden=""
+              ></p>
+            </form>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script src="config.js?v=5"></script>
+    <script src="importer.js?v=6"></script>
+    <script type="module" src="app.js?v=12"></script>
+  </body>
 </html>
