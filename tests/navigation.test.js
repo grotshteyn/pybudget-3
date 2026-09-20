@@ -409,10 +409,7 @@ function mockSupabase() {
     await rows(2);
     await active("accounts");
     await navigate("plans");
-    await page
-      .getByRole("link", { name: "Review transactions", exact: true })
-      .click();
-    await active("accounts");
+    await navigate("accounts");
     await rows(2);
     await navigate("plans");
     await page.waitForFunction(() => {
